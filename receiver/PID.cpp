@@ -44,3 +44,13 @@ double PID::calculate() {
 		PID = upperLimit;
 	return PID;
 }
+
+void PID::reset() {
+	P = 0;
+	I = 0;
+	D = 0;
+	desiredPoint = 0;
+	currentPoint = 0;
+	lastDt = millis();
+	lastError = 0;
+}

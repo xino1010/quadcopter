@@ -19,4 +19,6 @@ class PID {
 		void setDesiredPoint(double desiredPoint);
 		void setCurrentPoint(double currentPoint);
 		double calculate();
+		void reset();
+
 };

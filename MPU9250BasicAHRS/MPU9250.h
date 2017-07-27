@@ -207,6 +207,12 @@ class MPU9250 {
 		// In any case, this is the free parameter in the Madgwick filtering and fusion scheme.
 		float beta = sqrt(3.0f / 4.0f) * GyroMeasError;   // compute beta
 		float zeta = sqrt(3.0f / 4.0f) * GyroMeasDrift;   // compute zeta, the other free parameter in the Madgwick scheme usually set to a small or zero value	
+		float magCalibration[3] = {0, 0, 0};
+		float magbias[3] = {0, 0, 0};  // Factory mag calibration and mag bias
+		float gyroBias[3] = {0, 0, 0};
+		float accelBias[3] = {0, 0, 0};      // Bias corrections for gyro and accelerometer
+		float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};    // vector to hold quaternion
+		float eInt[3] = {0.0f, 0.0f, 0.0f};       // vector to hold integral error for Mahony method
 
 		void writeByte(uint8_t address, uint8_t subAddress, uint8_t data);
 		void readBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
@@ -215,19 +221,22 @@ class MPU9250 {
 
 		MPU9250();
 		uint8_t readByte(uint8_t address, uint8_t subAddress);
-		void MPU9250SelfTest(float * destination);
-		void calibrateMPU9250(float * dest1, float * dest2);
+		void MPU9250SelfTest();
+		void calibrateMPU9250();
 		void initMPU9250();
-		void initAK8963(float * destination);
-		void readAccelData(int16_t * destination);
+		void initAK8963();
+		void readAccelData(float *accelerations);
 		float getAres();
-		void readGyroData(int16_t * destination);
+		void readGyroData(float *gyrometers);
 		float getGres();
-		void readMagData(int16_t * destination);
+		void readMagData(float *magnetometers);
 		float getMres();
 		int16_t readTempData();
 		void resetMPU9250();
-		void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, float *q);
-		void MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, float *q, float *eInt);
+		void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat);
+		void MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat);
+		float getYaw();
+		float getPitch();
+		float getRoll();
 
 };

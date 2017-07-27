@@ -6,7 +6,7 @@ MPU9250::MPU9250() {
 
 // Accelerometer and gyroscope self test; check calibration wrt factory settings
 // Should return percent deviation from factory trim values, +/- 14 or less deviation is a pass 
-void MPU9250::MPU9250SelfTest(float * destination) {
+void MPU9250::MPU9250SelfTest() {
   uint8_t rawData[6] = {0, 0, 0, 0, 0, 0};
   uint8_t selfTest[6];
   int32_t gAvg[3] = {0}, aAvg[3] = {0}, aSTAvg[3] = {0}, gSTAvg[3] = {0};
@@ -82,14 +82,23 @@ void MPU9250::MPU9250SelfTest(float * destination) {
   // Report results as a ratio of (STR - FT)/FT; the change from Factory Trim of the Self-Test Response
   // To get percent, must multiply by 100
   for (int i = 0; i < 3; i++) {
-    destination[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;   // Report percent differences
-    destination[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.; // Report percent differences
+    selfTest[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;   // Report percent differences
+    selfTest[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.; // Report percent differences
+  }
+
+  if (SerialDebug) {
+    Serial.print("x-axis self test: acceleration trim within : "); Serial.print(selfTest[0],1); Serial.println("% of factory value");
+    Serial.print("y-axis self test: acceleration trim within : "); Serial.print(selfTest[1],1); Serial.println("% of factory value");
+    Serial.print("z-axis self test: acceleration trim within : "); Serial.print(selfTest[2],1); Serial.println("% of factory value");
+    Serial.print("x-axis self test: gyration trim within : "); Serial.print(selfTest[3],1); Serial.println("% of factory value");
+    Serial.print("y-axis self test: gyration trim within : "); Serial.print(selfTest[4],1); Serial.println("% of factory value");
+    Serial.print("z-axis self test: gyration trim within : "); Serial.print(selfTest[5],1); Serial.println("% of factory value");
   }
 }
 
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
 // of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
-void MPU9250::calibrateMPU9250(float * dest1, float * dest2) {  
+void MPU9250::calibrateMPU9250() {  
   uint8_t data[12]; // data array to hold accelerometer and gyro x, y, z, data
   uint16_t ii, packet_count, fifo_count;
   int32_t gyro_bias[3]  = {0, 0, 0}, accel_bias[3] = {0, 0, 0};
@@ -181,9 +190,9 @@ void MPU9250::calibrateMPU9250(float * dest1, float * dest2) {
   writeByte(MPU9250_ADDRESS, ZG_OFFSET_L, data[5]);
 
   // Output scaled gyro biases for display in the main program
-  dest1[0] = (float) gyro_bias[0]/(float) gyrosensitivity;  
-  dest1[1] = (float) gyro_bias[1]/(float) gyrosensitivity;
-  dest1[2] = (float) gyro_bias[2]/(float) gyrosensitivity;
+  gyroBias[0] = (float) gyro_bias[0]/(float) gyrosensitivity;  
+  gyroBias[1] = (float) gyro_bias[1]/(float) gyrosensitivity;
+  gyroBias[2] = (float) gyro_bias[2]/(float) gyrosensitivity;
 
   // Construct the accelerometer biases for push to the hardware accelerometer bias registers. These registers contain
   // factory trim values which must be added to the calculated accelerometer biases; on boot up these registers will hold
@@ -233,9 +242,27 @@ void MPU9250::calibrateMPU9250(float * dest1, float * dest2) {
   writeByte(MPU9250_ADDRESS, ZA_OFFSET_L, data[5]);
 
   // Output scaled accelerometer biases for display in the main program
-  dest2[0] = (float)accel_bias[0]/(float)accelsensitivity; 
-  dest2[1] = (float)accel_bias[1]/(float)accelsensitivity;
-  dest2[2] = (float)accel_bias[2]/(float)accelsensitivity;
+  gyroBias[0] = (float)accel_bias[0]/(float)accelsensitivity; 
+  gyroBias[1] = (float)accel_bias[1]/(float)accelsensitivity;
+  gyroBias[2] = (float)accel_bias[2]/(float)accelsensitivity;
+
+  if (SerialDebug) {
+    Serial.println("MPU9250 bias");
+    Serial.print("ax: ");
+    Serial.print((int)(1000 * accelBias[0]));
+    Serial.print(" ay: ");
+    Serial.print((int)(1000 * accelBias[1]));
+    Serial.print(" az: ");
+    Serial.print((int)(1000 * accelBias[2]));
+    Serial.println(" mg");
+    Serial.print("gx: ");
+    Serial.print(gyroBias[0]);
+    Serial.print(" gy: ");
+    Serial.print(gyroBias[1]);
+    Serial.print(" gz: ");
+    Serial.print(gyroBias[2]);
+    Serial.println(" o/s");
+  }
 }
 
 void MPU9250::initMPU9250() {  
@@ -295,7 +322,7 @@ void MPU9250::initMPU9250() {
   delay(100);
 }
 
-void MPU9250::initAK8963(float * destination) {
+void MPU9250::initAK8963() {
   // First extract the factory calibration for each magnetometer axis
   uint8_t rawData[3];  // x/y/z gyro calibration data stored here
   writeByte(AK8963_ADDRESS, AK8963_CNTL, 0x00); // Power down magnetometer  
@@ -303,9 +330,10 @@ void MPU9250::initAK8963(float * destination) {
   writeByte(AK8963_ADDRESS, AK8963_CNTL, 0x0F); // Enter Fuse ROM access mode
   delay(10);
   readBytes(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);  // Read the x-, y-, and z-axis calibration values
-  destination[0] =  (float)(rawData[0] - 128)/256. + 1.;   // Return x-axis sensitivity adjustment values, etc.
-  destination[1] =  (float)(rawData[1] - 128)/256. + 1.;  
-  destination[2] =  (float)(rawData[2] - 128)/256. + 1.; 
+  float magCalibration[3];
+  magCalibration[0] =  (float)(rawData[0] - 128)/256. + 1.;   // Return x-axis sensitivity adjustment values, etc.
+  magCalibration[1] =  (float)(rawData[1] - 128)/256. + 1.;  
+  magCalibration[2] =  (float)(rawData[2] - 128)/256. + 1.; 
   writeByte(AK8963_ADDRESS, AK8963_CNTL, 0x00); // Power down magnetometer  
   delay(10);
   // Configure the magnetometer for continuous read and highest resolution
@@ -313,14 +341,26 @@ void MPU9250::initAK8963(float * destination) {
   // and enable continuous mode data acquisition Mmode (bits [3:0]), 0010 for 8 Hz and 0110 for 100 Hz sample rates
   writeByte(AK8963_ADDRESS, AK8963_CNTL, Mscale << 4 | Mmode); // Set magnetometer data resolution and sample ODR
   delay(10);
+
+  if (SerialDebug) {
+    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(magCalibration[0], 2);
+    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(magCalibration[1], 2);
+    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(magCalibration[2], 2);
+  }
 }
 
-void MPU9250::readAccelData(int16_t * destination) {
+void MPU9250::readAccelData(float *accelerations) {
   uint8_t rawData[6];  // x/y/z accel register data stored here
   readBytes(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);  // Read the six raw data registers into data array
-  destination[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
-  destination[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  
-  destination[2] = ((int16_t)rawData[4] << 8) | rawData[5] ; 
+  uint16_t accelCount[3];
+  accelCount[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
+  accelCount[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  
+  accelCount[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
+  float aRes = getAres();
+  // Now we'll calculate the accleration value into actual g's
+  accelerations[0] = (float) accelCount[0] * aRes; // ax
+  accelerations[1] = (float) accelCount[1] * aRes; // ay;   
+  accelerations[2] = (float) accelCount[2] * aRes; // az;  
 }
 
 float MPU9250::getAres() {
@@ -345,12 +385,18 @@ float MPU9250::getAres() {
   }
 }
 
-void MPU9250::readGyroData(int16_t * destination) {
+void MPU9250::readGyroData(float *gyrometers) {
   uint8_t rawData[6];  // x/y/z gyro register data stored here
   readBytes(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);  // Read the six raw data registers sequentially into data array
-  destination[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
-  destination[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  
-  destination[2] = ((int16_t)rawData[4] << 8) | rawData[5] ; 
+  int16_t gyroCount[3];
+  gyroCount[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
+  gyroCount[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  
+  gyroCount[2] = ((int16_t)rawData[4] << 8) | rawData[5] ; 
+  float gRes = getGres();
+  // Calculate the gyro value into actual degrees per second
+  gyrometers[0] = (float) gyroCount[0] * gRes; // gx
+  gyrometers[1] = (float) gyroCount[1] * gRes; // gy
+  gyrometers[2] = (float) gyroCount[2] * gRes; // gz
 }
 
 float MPU9250::getGres() {
@@ -375,15 +421,25 @@ float MPU9250::getGres() {
   }
 }
 
-void MPU9250::readMagData(int16_t * destination) {
+void MPU9250::readMagData(float *magnetometers) {
   uint8_t rawData[7];  // x/y/z gyro register data, ST2 register stored here, must read ST2 at end of data acquisition
   if(readByte(AK8963_ADDRESS, AK8963_ST1) & 0x01) { // wait for magnetometer data ready bit to be set
     readBytes(AK8963_ADDRESS, AK8963_XOUT_L, 7, &rawData[0]);  // Read the six raw data and ST2 registers sequentially into data array
     uint8_t c = rawData[6]; // End data read by reading ST2 register
     if(!(c & 0x08)) { // Check if magnetic sensor overflow set, if not then report data
-      destination[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
-      destination[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
-      destination[2] = ((int16_t)rawData[5] << 8) | rawData[4] ; 
+      uint16_t magCount[3];
+      magCount[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
+      magCount[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
+      magCount[2] = ((int16_t)rawData[5] << 8) | rawData[4] ; 
+
+      magbias[0] = +470.;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+      magbias[1] = +120.;  // User environmental x-axis correction in milliGauss
+      magbias[2] = +125.;  // User environmental x-axis correction in milliGauss
+      
+      float mRes = getMres();
+      magnetometers[0] = (float) magCount[0] * mRes * magCalibration[0] - magbias[0]; // mx
+      magnetometers[1] = (float) magCount[1] * mRes * magCalibration[1] - magbias[1]; // my
+      magnetometers[2] = (float) magCount[2] * mRes * magCalibration[2] - magbias[2]; // mz
     }
   }
 }
@@ -406,7 +462,8 @@ float MPU9250::getMres() {
 int16_t MPU9250::readTempData() {
   uint8_t rawData[2];  // x/y/z gyro register data stored here
   readBytes(MPU9250_ADDRESS, TEMP_OUT_H, 2, &rawData[0]);  // Read the two raw data registers sequentially into data array 
-  return ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a 16-bit value
+  int16_t tempCount = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a 16-bit value
+  return ((float) tempCount) / 333.87 + 21.0; // Temperature in degrees Centigrade;
 }
 
 // Wire.h read and write protocols
@@ -451,7 +508,7 @@ void MPU9250::resetMPU9250() {
 // device orientation -- which can be converted to yaw, pitch, and roll. Useful for stabilizing quadcopters, etc.
 // The performance of the orientation filter is at least as good as conventional Kalman-based filtering algorithms
 // but is much less computationally intensive---it can be performed on a 3.3 V Pro Mini operating at 8 MHz!
-void MPU9250::MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, float *q) {
+void MPU9250::MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat) {
   float q1 = q[0], q2 = q[1], q3 = q[2], q4 = q[3];   // short name local variable for readability
   float norm;
   float hx, hy, _2bx, _2bz;
@@ -545,7 +602,7 @@ void MPU9250::MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, f
 
 // Similar to Madgwick scheme but uses proportional and integral filtering on the error between estimated reference vectors and
 // measured ones. 
-void MPU9250::MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, float *q, float *eInt) {
+void MPU9250::MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat) {
   float q1 = q[0], q2 = q[1], q3 = q[2], q4 = q[3];   // short name local variable for readability
   float norm;
   float hx, hy, bx, bz;
@@ -633,4 +690,24 @@ void MPU9250::MahonyQuaternionUpdate(float ax, float ay, float az, float gx, flo
   q[1] = q2 * norm;
   q[2] = q3 * norm;
   q[3] = q4 * norm;
+}
+
+float MPU9250::getYaw() {
+  float yaw = atan2(2.0f * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3]);   
+  yaw *= 180.0f / PI;
+  //yaw -= 13.8; // Declination at Danville, California is 13 degrees 48 minutes and 47 seconds on 2014-04-04
+  yaw -= 18.3; // Declination at Valencia, Spain is 0 degrees 11 minutes on 2017-07-27
+  return yaw;
+}
+
+float MPU9250::getPitch() {
+  float pitch = -asin(2.0f * (q[1] * q[3] - q[0] * q[2]));
+  pitch *= 180.0f / PI;
+  return pitch;
+}
+
+float MPU9250::getRoll() {
+  float roll  = atan2(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
+  roll  *= 180.0f / PI;
+  return roll;
 }
