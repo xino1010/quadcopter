@@ -4,7 +4,7 @@
 #define MIN_ANALOG_VALUE 0
 #define MEDIUM_ANALOG_VALUE 512
 #define MAX_ANALOG_VALUE 1023
-#define MIN_THROTTLE 1000
+#define MIN_THROTTLE 1100
 #define MAX_THROTTLE 2000
 #define MIN_PITCH -45
 #define MAX_PITCH 45
@@ -13,21 +13,19 @@
 #define MIN_YAW -30
 #define MAX_YAW 30
 
-struct Joystick {
+struct JoystickInfo {
   int num;
   int pinX;
   int pinY;
-  int pinButton;
   int valX;
   int valY;
-  int valButton;
 };
 
-Joystick j1 = {1, A0, A1, 7, MEDIUM_ANALOG_VALUE, 0, 0};
-Joystick j2 = {2, A2, A3, 8, MEDIUM_ANALOG_VALUE, MEDIUM_ANALOG_VALUE, 0};
+JoystickInfo j1 = {1, A0, A1, MEDIUM_ANALOG_VALUE, 0};
+JoystickInfo j2 = {2, A2, A3, MEDIUM_ANALOG_VALUE, MEDIUM_ANALOG_VALUE};
 
 struct SetPoints {
-  int throttle;
+  float throttle;
   double pitch;
   double roll;
   double yaw;
@@ -38,24 +36,20 @@ SetPoints sp = {1000, 0.0, 0.0, 0.0};
 void readJoystick1() {
   j1.valX = analogRead(j1.pinX);
   j1.valY = MAX_ANALOG_VALUE - analogRead(j1.pinY);
-  j1.valButton = digitalRead(j1.pinButton);
 }
 
 void readJoystick2() {
   j2.valX = analogRead(j2.pinX);
   j2.valY = analogRead(j2.pinY);
-  j2.valButton = digitalRead(j2.pinButton);
 }
 
-void printJoystickData(struct Joystick *j) {
+void printJoystickData(struct JoystickInfo *ji) {
   Serial.print("JOYSTICK ");
-  Serial.print(j->num);
+  Serial.print(ji->num);
   Serial.print(" -> X: ");
-  Serial.print(j->valX);
+  Serial.print(ji->valX);
   Serial.print(" Y: ");
-  Serial.print(j->valY);
-  Serial.print(" BUTTON: ");
-  Serial.println(j->valButton);
+  Serial.println(ji->valY);
 }
 
 void calculateSetpoints() {
@@ -79,12 +73,6 @@ void printSetpoints() {
 }
 
 void setup() {
-  #ifdef JOYSTICK1
-	  pinMode(j1.pinButton, INPUT_PULLUP);
-  #endif
-  #ifdef JOYSTICK2
-    pinMode(j2.pinButton, INPUT_PULLUP);
-  #endif
 	Serial.begin(9600);
 }
 
