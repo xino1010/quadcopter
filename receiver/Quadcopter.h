@@ -1,30 +1,36 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
 #include <Servo.h>
+#include "RF24.h"
 #include "PID.h"
 
 #define DEBUG 1
 
-// PINS
+// CONSTANTS
+
+// MOTORS
 #define PIN_MOTOR_FL 3
 #define PIN_MOTOR_FR 5
 #define PIN_MOTOR_BL 6
 #define PIN_MOTOR_BR 9
-
-// CONSTANTS
 #define ARM_MOTOR 1000
 #define MIN_VALUE_MOTOR 1100
 #define MAX_VALUE_MOTOR 2000
 #define MIN_VALUE_PID -1000.0
 #define MAX_VALUE_PID 1000.0
 
+// RADIO
+#define RADIO_ADDRESS 0xABCDABCD71LL
+#define NFR24L01_CE 8
+#define NFR24L01_CSN 10
+
 class Quadcopter {
 	
-	struct JoystickInfo {
-		float pitch;
-		float roll;
-		float yaw;
-		float throttle;
+	struct SetPoints {
+		int pitch;
+		int roll;
+		int yaw;
+		int throttle;
 	};
 
 	private:
@@ -32,39 +38,21 @@ class Quadcopter {
 		Adafruit_BMP085 bmp;
 
 		// PID's
-		// Pitch
-		double kpPitch = 1;
-		double kiPitch = 0;
-		double kdPitch = 0;
-		PID &pidPitch;
-		// Roll
-		double kpRoll = 1;
-		double kiRoll = 0;
-		double kdRoll = 0;
-		PID &pidRoll;
-		// Yaw
-		double kpYaw = 0;
-		double kiYaw = 0;
-		double kdYaw = 0;
-		PID &pidYaw;
+		double kpPitch = 1, kiPitch = 0, kdPitch = 0;
+		double kpRoll = 1, kiRoll = 0, kdRoll = 0;
+		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
+		PID &pidRoll, &pidPitch, &pidYaw;
 
 		// MOTORS
-		float vFL, vFR, vBL, vBR;
-		Servo motorFL;
-		Servo motorFR;
-		Servo motorBL;
-		Servo motorBR;
+		int vFL, vFR, vBL, vBR;
+		Servo motorFL, motorFR, motorBL, motorBR;
 
 		// RADIO
-		float desiredPitch;
-		float desiredRoll;
-		float desiredYaw;
-		float throttle;
+		int desiredPitch, desiredRoll, desiredYaw, throttle;
+		RF24 &radio;
 
 		// IMU
-		float currentPitch;
-		float currentRoll;
-		float currentYaw;
+		int currentPitch, currentRoll, currentYaw;
 
 	public:
 		Quadcopter();
@@ -80,32 +68,32 @@ class Quadcopter {
 		void armMotors();
 		void calculateVelocities();
 		void updateMotorsVelocities();
-		float getVelocityFL();
-		void setVelocityFL(float vFL);
-		float getVelocityFR();
-		void setVelocityFR(float vFR);
-		float getVelocityBL();
-		void setVelocityBL(float vBL);
-		float getVelocityBR();
-		void setVelocityBR(float vBR);
+		int getVelocityFL();
+		void setVelocityFL(int vFL);
+		int getVelocityFR();
+		void setVelocityFR(int vFR);
+		int getVelocityBL();
+		void setVelocityBL(int vBL);
+		int getVelocityBR();
+		void setVelocityBR(int vBR);
 
 		// RADIO
-		float getDesiredPitch();
-		void setDesiredPitch(float desiredPitch);
-		float getDesidedRoll();
-		void setDesiredRoll(float desiredRoll);
-		float getDesiredYaw();
-		void setDesiredYaw(float desiredYaw);
-		float getThrottle();
-		void setThrottle(float throttle);
+		int getDesiredPitch();
+		void setDesiredPitch(int desiredPitch);
+		int getDesidedRoll();
+		void setDesiredRoll(int desiredRoll);
+		int getDesiredYaw();
+		void setDesiredYaw(int desiredYaw);
+		int getThrottle();
+		void setThrottle(int throttle);
 		void updateRadioInfo();
 
 		// IMU
-		float getCurrentPitch();
-		void setCurrentPitch(float currentPitch);
-		float getCurrentRoll();
-		void setCurrentRoll(float currentRoll);
-		float getCurrentYaw();
-		void setCurrentYaw(float currentYaw);
+		int getCurrentPitch();
+		void setCurrentPitch(int currentPitch);
+		int getCurrentRoll();
+		void setCurrentRoll(int currentRoll);
+		int getCurrentYaw();
+		void setCurrentYaw(int currentYaw);
 
 };

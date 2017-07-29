@@ -13,6 +13,7 @@ void setup() {
 
 void loop() {
 
+	// Read data from radio
 	quadcopter.updateRadioInfo();
 
 	// Calculate velocities of each motor

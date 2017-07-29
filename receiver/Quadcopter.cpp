@@ -13,9 +13,14 @@ Quadcopter::Quadcopter() {
 	vBR = 0;
 
 	// RADIO
+	radio =  RF24(NFR24L01_CE, NFR24L01_CSN);
 	desiredPitch = 0;
 	desiredRoll = 0;
 	desiredYaw = 0;
+	radio.begin();
+	radio.setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
+	radio.openReadingPipe(1, RADIO_ADDRESS);
+	radio.startListening();
 
 	// IMU
 	currentPitch = 0;
@@ -48,15 +53,17 @@ void Quadcopter::armMotors() {
 }
 
 void Quadcopter::calculateVelocities() {
+
+	// Calculate the pids from the setpoints and the current point
 	double resultPitch = pidPitch.calculate();
 	double resultRoll = pidRoll.calculate();
 	double resultYaw = pidYaw.calculate();
 	
 	// The velocities are obtained from the calculations of the pids
-	float tmpVFL = getThrottle() + resultRoll + resultPitch + resultYaw;
-	float tmpVFR = getThrottle() - resultRoll + resultPitch - resultYaw;
-	float tmpVBL = getThrottle() + resultRoll - resultPitch - resultYaw;
-	float tmpVBR = getThrottle() - resultRoll - resultPitch + resultYaw;
+	int tmpVFL = getThrottle() + resultRoll + resultPitch + resultYaw;
+	int tmpVFR = getThrottle() - resultRoll + resultPitch - resultYaw;
+	int tmpVBL = getThrottle() + resultRoll - resultPitch - resultYaw;
+	int tmpVBR = getThrottle() - resultRoll - resultPitch + resultYaw;
 
 	// Check that the speeds do not exceed the limits
 	setVelocityFL(constrain(tmpVFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
@@ -83,80 +90,84 @@ void Quadcopter::updateMotorsVelocities() {
 	motorBR.writeMicroseconds(getVelocityBR());
 }
 
-float Quadcopter::getVelocityFL() {
+int Quadcopter::getVelocityFL() {
 	return vFL;
 }
 
-void Quadcopter::setVelocityFL(float vFL) {
+void Quadcopter::setVelocityFL(int vFL) {
 	this->vFL = vFL;
 }
 
-float Quadcopter::getVelocityFR() {
+int Quadcopter::getVelocityFR() {
 	return vFR;
 }
 
-void Quadcopter::setVelocityFR(float vFR) {
+void Quadcopter::setVelocityFR(int vFR) {
 	this->vFR = vFR;
 }
 
-float Quadcopter::getVelocityBL() {
+int Quadcopter::getVelocityBL() {
 	return vBL;
 }
 
-void Quadcopter::setVelocityBL(float vBL) {
+void Quadcopter::setVelocityBL(int vBL) {
 	this->vBL = vBL;
 }
 
-float Quadcopter::getVelocityBR() {
+int Quadcopter::getVelocityBR() {
 	return vBR;
 }
 
-void Quadcopter::setVelocityBR(float vBR) {
+void Quadcopter::setVelocityBR(int vBR) {
 	this->vBR = vBR;
 }
 
 // RADIO
-float Quadcopter::getDesiredPitch() {
+int Quadcopter::getDesiredPitch() {
 	return desiredPitch;
 }
 
-void Quadcopter::setDesiredPitch(float desiredPitch) {
+void Quadcopter::setDesiredPitch(int desiredPitch) {
 	this->desiredPitch = desiredPitch;
 	pidPitch.setDesiredPoint(this->desiredPitch);
 }
 
-float Quadcopter::getDesidedRoll() {
+int Quadcopter::getDesidedRoll() {
 	return desiredRoll;
 }
 
-void Quadcopter::setDesiredRoll(float desiredRoll) {
+void Quadcopter::setDesiredRoll(int desiredRoll) {
 	this->desiredRoll = desiredRoll;
 	pidRoll.setDesiredPoint(this->desiredRoll);
 }
 
-float Quadcopter::getDesiredYaw() {
+int Quadcopter::getDesiredYaw() {
 	return desiredYaw;
 }
 
-void Quadcopter::setDesiredYaw(float desiredYaw) {
+void Quadcopter::setDesiredYaw(int desiredYaw) {
 	this->desiredYaw = desiredYaw;
 	pidYaw.setDesiredPoint(this->desiredYaw);
 }
 
-float Quadcopter::getThrottle() {
+int Quadcopter::getThrottle() {
 	return throttle;
 }
 
-void Quadcopter::setThrottle(float throttle) {
+void Quadcopter::setThrottle(int throttle) {
 	this->throttle = throttle;
 }
 
 void Quadcopter::updateRadioInfo() {
-	JoystickInfo ji;
-	setDesiredPitch(ji.pitch);
-	setDesiredRoll(ji.roll);
-	setDesiredYaw(ji.yaw);
-	setThrottle(ji.throttle);
+
+	if (radio.available()) {
+		SetPoints sp;
+		radio.read(&sp, sizeof(SetPoints));
+		setDesiredPitch(sp.pitch);
+		setDesiredRoll(sp.roll);
+		setDesiredYaw(sp.yaw);
+		setThrottle(sp.throttle);
+	}
 
 	#ifdef DEBUG
 		Serial.print("THROTTLE: ");
@@ -171,26 +182,26 @@ void Quadcopter::updateRadioInfo() {
 }
 
 // IMU
-float Quadcopter::getCurrentPitch() {
+int Quadcopter::getCurrentPitch() {
 	return currentPitch;
 }
 
-void Quadcopter::setCurrentPitch(float currentPitch) {
+void Quadcopter::setCurrentPitch(int currentPitch) {
 	this->currentPitch = currentPitch;
 }
 
-float Quadcopter::getCurrentRoll() {
+int Quadcopter::getCurrentRoll() {
 	return currentRoll;
 }
 
-void Quadcopter::setCurrentRoll(float currentRoll) {
+void Quadcopter::setCurrentRoll(int currentRoll) {
 	this->currentRoll = currentRoll;
 }
 
-float Quadcopter::getCurrentYaw() {
+int Quadcopter::getCurrentYaw() {
 	return currentYaw;
 }
 
-void Quadcopter::setCurrentYaw(float currentYaw) {
+void Quadcopter::setCurrentYaw(int currentYaw) {
 	this->currentYaw = currentYaw;
 }
