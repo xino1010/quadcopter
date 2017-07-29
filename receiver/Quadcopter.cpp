@@ -26,15 +26,31 @@ Quadcopter::Quadcopter() {
 	currentPitch = 0;
 	currentRoll = 0;
 	currentYaw = 0;
+
+	// HC-SR04
+   	pinMode(HCSR04_ECHO_PIN, INPUT);
+   	pinMode(HCSR04_TRIGGER_PIN, OUTPUT);
 }
 
 // BMP180
 float Quadcopter::getAltitude() {
-	return bmp.readAltitude();
+	float altitude = bmp.readAltitude();
+	#ifdef DEBUG
+		Serial.print("BMP180 Altitude: ");
+		Serial.print(altitude);
+		Serial.println("m");
+	#endif
+	return altitude;
 }
 
 float Quadcopter::getTemperature() {
-	return bmp.readTemperature();
+	float temperature = bmp.readTemperature();;
+	#ifdef DEBUG
+		Serial.print("BMP180 Temperature: ");
+		Serial.print(temperature);
+		Serial.println("ºC");
+	#endif
+	return temperature;
 }
 
 // MOTORS
@@ -204,4 +220,35 @@ int Quadcopter::getCurrentYaw() {
 
 void Quadcopter::setCurrentYaw(int currentYaw) {
 	this->currentYaw = currentYaw;
+}
+
+// HC-SR04
+int Quadcopter::getDistance() {
+   	// To generate a clean pulse we put to LOW 4us
+	digitalWrite(HCSR04_TRIGGER_PIN, LOW);
+	delayMicroseconds(4);
+	// Generate trigger 10us
+	digitalWrite(HCSR04_TRIGGER_PIN, HIGH);
+	delayMicroseconds(10);
+	digitalWrite(HCSR04_TRIGGER_PIN, LOW);
+   
+   	// Measure the time between pulses (in microseconds)
+   	long duration = pulseIn(HCSR04_ECHO_PIN, HIGH);
+	if (duration == 0) {
+		pinMode(HCSR04_ECHO_PIN, OUTPUT);
+		digitalWrite(HCSR04_ECHO_PIN, LOW);
+		delay(1);
+		pinMode(HCSR04_ECHO_PIN, INPUT);
+	}
+
+	// Convert distance to cm
+	int distance = duration * 10 / 292 / 2;
+	
+	#ifdef DEBUG
+		Serial.print("HC-SR04 Floor distance: ");
+		Serial.print(distance);
+		Serial.println("cm");
+	#endif
+
+	return distance;
 }

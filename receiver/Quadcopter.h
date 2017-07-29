@@ -24,6 +24,10 @@
 #define NFR24L01_CE 8
 #define NFR24L01_CSN 10
 
+// HC-SR04
+#define HCSR04_ECHO_PIN 2
+#define HCSR04_TRIGGER_PIN 4
+
 class Quadcopter {
 	
 	struct SetPoints {
@@ -95,5 +99,8 @@ class Quadcopter {
 		void setCurrentRoll(int currentRoll);
 		int getCurrentYaw();
 		void setCurrentYaw(int currentYaw);
+
+		// HC-SR04
+		int getDistance();
 
 };
