@@ -2,6 +2,8 @@
 #include "RF24.h"
 
 #define DEBUG
+//#define TRANSMITTER
+#define CALIBRATION
 #define MIN_ANALOG_VALUE 0
 #define MEDIUM_ANALOG_VALUE 512
 #define MAX_ANALOG_VALUE 1023
@@ -21,6 +23,16 @@
 #define RADIO_ADDRESS 0xABCDABCD71LL
 #define NFR24L01_CE 9
 #define NFR24L01_CSN 10
+
+#define POTENTIOMETRE_KP A1
+#define POTENTIOMETRE_KI A2
+#define POTENTIOMETRE_KD A3
+#define MIN_KP 0.0
+#define MAX_KP 4.0
+#define MIN_KI 0.0
+#define MAX_KI 1.0
+#define MIN_KD 0.0
+#define MAX_KD 400.0
 
 struct JoystickInfo {
   int num;
@@ -44,6 +56,15 @@ struct SetPoints {
 
 SetPoints sp = {MIN_THROTTLE, MEDIUM_PITCH, MEDIUM_ROLL, MEDIUM_YAW};
 const int sizeOfSetPoints = sizeof(sp);
+
+struct CalibrationData {
+  float kP;
+  float kI;
+  float kD;
+};
+
+CalibrationData cd = {MIN_KP, MIN_KI, MIN_KD};
+const int sizeOfCalibration = sizeof(cd);
 
 void readJoystick1() {
   j1.valX = analogRead(j1.pinX);
@@ -97,6 +118,38 @@ void printSetpoints() {
   Serial.println();
 }
 
+float mapfloat(long x, long in_min, long in_max, long out_min, long out_max) {
+  return (float)(x - in_min) * (out_max - out_min) / (float)(in_max - in_min) + out_min;
+}
+
+void readPotentiometers() {
+  cd.kP = analogRead(POTENTIOMETRE_KP);
+  cd.kI = analogRead(POTENTIOMETRE_KI);
+  cd.kD = analogRead(POTENTIOMETRE_KD);
+  #ifdef DEBUG
+    Serial.print("AkP: ");
+    Serial.print(cd.kP);
+    Serial.print("\tAkI: ");
+    Serial.print(cd.kI);
+    Serial.print("\tAkD: ");
+    Serial.print(cd.kD);
+  #endif
+
+  cd.kP = mapfloat(cd.kP, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KP, MAX_KP);
+  cd.kI = mapfloat(cd.kI, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KI, MAX_KI);
+  cd.kD = mapfloat(cd.kD, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KD, MAX_KD);
+
+  #ifdef DEBUG
+    Serial.print("\tkP: ");
+    Serial.print(cd.kP);
+    Serial.print("\tkI: ");
+    Serial.print(cd.kI);
+    Serial.print("\tkD: ");
+    Serial.println(cd.kD);
+  #endif
+
+}
+
 void setup() {
 	Serial.begin(9600);
   radio.begin();
@@ -106,20 +159,31 @@ void setup() {
 }
 
 void loop() {
-  readJoystick1();
-  readJoystick2();
-  calculateSetpoints();
-  #ifdef DEBUG
-    printJoystickData(&j1);
-    printJoystickData(&j2);
-    printSetpoints();
+  #ifdef TRANSMITTER
+    readJoystick1();
+    readJoystick2();
+    calculateSetpoints();
+    #ifdef DEBUG
+      printJoystickData(&j1);
+      printJoystickData(&j2);
+      printSetpoints();
+    #endif
+
+    if (!radio.write(&sp, sizeOfSetPoints)) {
+      #ifdef DEBUG
+        Serial.println("Failed transmitting setpoints");
+      #endif
+    }
   #endif
 
-  if (!radio.write(&sp, sizeOfSetPoints)) {
-    #ifdef DEBUG
-      Serial.println("Failed transmitting setpoints");
-    #endif
-  }
+  #ifdef CALIBRATION
+    readPotentiometers();
+    /*if (!radio.write(&cd, sizeOfCalibration)) {
+      #ifdef DEBUG
+        Serial.println("Failed transmitting setpoints");
+      #endif
+    }*/
+  #endif
 
-	delay(20);
+	delay(100);
 }
