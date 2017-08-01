@@ -8,7 +8,8 @@ class PID {
 		double upperLimit = 0;
 		double desiredPoint = 0;
 		double currentPoint = 0;
-		long lastDt = millis();
+		long _time;
+		long lastDt;
 		double lastError = 0;
 
 	public:

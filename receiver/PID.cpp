@@ -7,6 +7,7 @@ PID::PID(double kP, double kI, double kD, double lowerLimit, double upperLimit) 
 	this->kD = kD;
 	this->lowerLimit = lowerLimit;
 	this->upperLimit = upperLimit;
+	this->_time = millis();
 }
 
 void PID::setKp(double kP) {
@@ -30,8 +31,10 @@ void PID::setCurrentPoint(double currentPoint) {
 }
 
 double PID::calculate() {
-	double dt = (millis() - lastDt) / 1000.0;
-	lastDt = millis();
+	lastDt = _time;
+	_time = millis();
+	double dt = (_time - lastDt) / 1000.0;
+
 	double currentError = currentPoint - desiredPoint;
 	P = kP * currentError;
 	I = I + (kI * currentError);
