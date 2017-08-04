@@ -3,8 +3,14 @@
 #include <Servo.h>
 #include "RF24.h"
 #include "PID.h"
+#include "quaternionFilters.h"
+#include "MPU9250.h"
 
-#define DEBUG 1
+#define DEBUG
+#ifdef DEBUG
+  //#define DEBUG_IMU
+  #define DEBUG_MOTORS
+#endif
 
 // CONSTANTS
 
@@ -28,13 +34,21 @@
 #define HCSR04_ECHO_PIN 2
 #define HCSR04_TRIGGER_PIN 4
 
+// IMU
+#define MIN_PITCH -30
+#define MAX_PITCH 30
+#define MIN_ROLL -30
+#define MAX_ROLL 30
+#define MIN_YAW -45
+#define MAX_YAW 45
+
 class Quadcopter {
-	
+
 	struct SetPoints {
 		int pitch;
-		int roll;
-		int yaw;
-		int throttle;
+		float roll;
+		float yaw;
+		float throttle;
 	};
 
 	private:
@@ -45,18 +59,20 @@ class Quadcopter {
 		double kpPitch = 1, kiPitch = 0, kdPitch = 0;
 		double kpRoll = 1, kiRoll = 0, kdRoll = 0;
 		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
-		PID &pidRoll, &pidPitch, &pidYaw;
+		PID *pidRoll, *pidPitch, *pidYaw;
 
 		// MOTORS
 		int vFL, vFR, vBL, vBR;
 		Servo motorFL, motorFR, motorBL, motorBR;
 
 		// RADIO
-		int desiredPitch, desiredRoll, desiredYaw, throttle;
+		int throttle;
+		float desiredPitch, desiredRoll, desiredYaw;
 		RF24 &radio;
 
 		// IMU
-		int currentPitch, currentRoll, currentYaw;
+    MPU9250 myIMU;
+		float currentPitch, currentRoll, currentYaw, temperatureIMU;
 
 	public:
 		Quadcopter();
@@ -83,22 +99,26 @@ class Quadcopter {
 
 		// RADIO
 		int getDesiredPitch();
-		void setDesiredPitch(int desiredPitch);
+		void setDesiredPitch(float desiredPitch);
 		int getDesidedRoll();
-		void setDesiredRoll(int desiredRoll);
+		void setDesiredRoll(float desiredRoll);
 		int getDesiredYaw();
-		void setDesiredYaw(int desiredYaw);
+		void setDesiredYaw(float desiredYaw);
 		int getThrottle();
 		void setThrottle(int throttle);
 		void updateRadioInfo();
 
 		// IMU
 		int getCurrentPitch();
-		void setCurrentPitch(int currentPitch);
+		void setCurrentPitch(float currentPitch);
 		int getCurrentRoll();
-		void setCurrentRoll(int currentRoll);
+		void setCurrentRoll(float currentRoll);
 		int getCurrentYaw();
-		void setCurrentYaw(int currentYaw);
+		void setCurrentYaw(float currentYaw);
+		void initIMU();
+		void updateAngles();
+    float getTemperatureIMU();
+    void setTemperatureIMU(float temperatureIMU);
 
 		// HC-SR04
 		int getDistance();

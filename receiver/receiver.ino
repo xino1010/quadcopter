@@ -1,26 +1,47 @@
 #include "Quadcopter.h"
 
-Quadcopter quadcopter;
+Quadcopter *quadcopter;
 
 void setup() {
+  Wire.begin();
+  
+  #ifdef DEBUG
+    Serial.begin(38400);
+    while (!Serial){}
+    delay(1000);
+  #endif
+
+  quadcopter = new Quadcopter();
+  
+	// Init MPU9250
+	quadcopter->initIMU();
+
 	// Connect Motors
-	quadcopter.connectMotors();
+	//quadcopter->connectMotors();
 	delay(50);
+
 	// Send a minimum signal to prepare the motors
-	quadcopter.armMotors();
+	//quadcopter->armMotors();
 	delay(50);
+	
+	#ifdef DEBUG
+	  Serial.println("Quadcopter initialized");
+  #endif
 }
 
 void loop() {
-
 	// Read data from radio
-	quadcopter.updateRadioInfo();
+	//quadcopter->updateRadioInfo();
+
+	// Read angles from sensor
+	quadcopter->updateAngles();
 
 	// Calculate velocities of each motor
-	quadcopter.calculateVelocities();
+	quadcopter->calculateVelocities();
 
 	// Send velocities to motors
-	quadcopter.updateMotorsVelocities();
+	//quadcopter->updateMotorsVelocities();
 
+	// Wait a moment...
 	delay(50);
 }

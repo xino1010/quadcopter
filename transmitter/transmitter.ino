@@ -9,16 +9,16 @@
 #define MAX_ANALOG_VALUE 1023
 #define MIN_THROTTLE 1100
 #define MAX_THROTTLE 2000
-#define MIN_PITCH 1000
-#define MEDIUM_PITCH 1500
-#define MAX_PITCH 2000
-#define MIN_ROLL 1000
-#define MEDIUM_ROLL 1500
-#define MAX_ROLL 2000
-#define MIN_YAW 1000
-#define MEDIUM_YAW 1500
-#define MAX_YAW 2000
-#define THRESHOLD 20
+#define MIN_PITCH -30
+#define MEDIUM_PITCH 0
+#define MAX_PITCH 30
+#define MIN_ROLL -30
+#define MEDIUM_ROLL 0
+#define MAX_ROLL 30
+#define MIN_YAW -45
+#define MEDIUM_YAW 0
+#define MAX_YAW 45
+#define THRESHOLD 2
 
 #define RADIO_ADDRESS 0xABCDABCD71LL
 #define NFR24L01_CE 9
@@ -49,9 +49,9 @@ RF24 radio(NFR24L01_CE, NFR24L01_CSN);
 
 struct SetPoints {
   int throttle;
-  int pitch;
-  int roll;
-  int yaw;
+  float pitch;
+  float roll;
+  float yaw;
 };
 
 SetPoints sp = {MIN_THROTTLE, MEDIUM_PITCH, MEDIUM_ROLL, MEDIUM_YAW};
@@ -89,17 +89,17 @@ void calculateSetpoints() {
   // THROTTLE
   sp.throttle = (int) constrain(map(j1.valY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE), MIN_THROTTLE, MAX_THROTTLE);
   // PITCH
-  sp.pitch = (int) constrain(map(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_PITCH, MAX_PITCH), MIN_PITCH, MAX_PITCH);
+  sp.pitch = constrain(map(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_PITCH, MAX_PITCH), MIN_PITCH, MAX_PITCH);
   if (sp.pitch >= MEDIUM_PITCH - THRESHOLD && sp.pitch <= MEDIUM_PITCH + THRESHOLD) {
     sp.pitch = MEDIUM_PITCH;
   }
   // ROLL
-  sp.roll = (int) constrain(map(j2.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_ROLL, MAX_ROLL), MIN_ROLL, MAX_ROLL);
+  sp.roll = constrain(map(j2.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_ROLL, MAX_ROLL), MIN_ROLL, MAX_ROLL);
   if (sp.roll >= MEDIUM_ROLL - THRESHOLD && sp.roll <= MEDIUM_ROLL + THRESHOLD) {
     sp.roll = MEDIUM_ROLL;
   }
   // YAW
-  sp.yaw = (int) constrain(map(j1.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_YAW, MAX_YAW), MIN_YAW, MAX_YAW);
+  sp.yaw = constrain(map(j1.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_YAW, MAX_YAW), MIN_YAW, MAX_YAW);
   if (sp.yaw >= MEDIUM_YAW - THRESHOLD && sp.yaw <= MEDIUM_YAW + THRESHOLD) {
     sp.yaw = MEDIUM_YAW;
   }
