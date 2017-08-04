@@ -34,13 +34,11 @@ double PID::calculate() {
 	lastDt = _time;
 	_time = millis();
 	double dt = (_time - lastDt) / 1000.0;
-
 	double currentError = currentPoint - desiredPoint;
-	P = kP * currentError;
-	I = I + (kI * currentError);
-	D = kD * ((currentError - lastError) / dt);
+	I += currentError * dt;
+	double D = kD * ((currentError - lastError) / dt);
 	lastError = currentError;
-	double PID = P + I + D;
+	double PID = (kP * currentError) + (kI * I) + (kD * D);
 	if (PID < lowerLimit)
 		PID = lowerLimit;
 	if (PID > upperLimit)
@@ -49,9 +47,7 @@ double PID::calculate() {
 }
 
 void PID::reset() {
-	P = 0;
 	I = 0;
-	D = 0;
 	desiredPoint = 0;
 	currentPoint = 0;
 	lastDt = millis();

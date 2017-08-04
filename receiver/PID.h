@@ -1,8 +1,6 @@
 class PID {
 	private:
-		double P = 0;
 		double I = 0;
-		double D = 0;
 		double kP, kI, kD;
 		double lowerLimit = 0;
 		double upperLimit = 0;
