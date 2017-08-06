@@ -89,17 +89,17 @@ void calculateSetpoints() {
   // THROTTLE
   sp.throttle = (int) constrain(map(j1.valY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE), MIN_THROTTLE, MAX_THROTTLE);
   // PITCH
-  sp.pitch = constrain(map(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_PITCH, MAX_PITCH), MIN_PITCH, MAX_PITCH);
+  sp.pitch = map(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_PITCH, MAX_PITCH);
   if (sp.pitch >= MEDIUM_PITCH - THRESHOLD && sp.pitch <= MEDIUM_PITCH + THRESHOLD) {
     sp.pitch = MEDIUM_PITCH;
   }
   // ROLL
-  sp.roll = constrain(map(j2.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_ROLL, MAX_ROLL), MIN_ROLL, MAX_ROLL);
+  sp.roll = map(j2.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_ROLL, MAX_ROLL);
   if (sp.roll >= MEDIUM_ROLL - THRESHOLD && sp.roll <= MEDIUM_ROLL + THRESHOLD) {
     sp.roll = MEDIUM_ROLL;
   }
   // YAW
-  sp.yaw = constrain(map(j1.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_YAW, MAX_YAW), MIN_YAW, MAX_YAW);
+  sp.yaw = map(j1.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_YAW, MAX_YAW);
   if (sp.yaw >= MEDIUM_YAW - THRESHOLD && sp.yaw <= MEDIUM_YAW + THRESHOLD) {
     sp.yaw = MEDIUM_YAW;
   }
