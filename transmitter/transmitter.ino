@@ -4,10 +4,13 @@
 #define DEBUG
 //#define TRANSMITTER
 #define CALIBRATION
+
+// TRANSMITTER
 #define MIN_ANALOG_VALUE 0
 #define MEDIUM_ANALOG_VALUE 512
 #define MAX_ANALOG_VALUE 1023
-#define MIN_THROTTLE 1100
+#define ZERO_THROTTLE 1000
+#define MIN_THROTTLE 1300
 #define MAX_THROTTLE 2000
 #define MIN_PITCH -30
 #define MEDIUM_PITCH 0
@@ -20,10 +23,12 @@
 #define MAX_YAW 45
 #define THRESHOLD 2
 
+// RADIO
 #define RADIO_ADDRESS 0xABCDABCD71LL
 #define NFR24L01_CE 9
 #define NFR24L01_CSN 10
 
+// CALIBRATION
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
 #define POTENTIOMETRE_KD A3
@@ -33,6 +38,12 @@
 #define MAX_KI 1.0
 #define MIN_KD 0.0
 #define MAX_KD 400.0
+
+// CONTROL
+#define LED_STATUS 2
+#define LED_HOLD_POSITION 4
+#define BUTTON_STATUS 7
+#define BUTTON_HOLD_POSITION 8
 
 struct JoystickInfo {
   int num;
@@ -52,9 +63,11 @@ struct SetPoints {
   float pitch;
   float roll;
   float yaw;
+  int status;
+  int holdPosition;
 };
 
-SetPoints sp = {MIN_THROTTLE, MEDIUM_PITCH, MEDIUM_ROLL, MEDIUM_YAW};
+SetPoints sp = {MIN_THROTTLE, MEDIUM_PITCH, MEDIUM_ROLL, MEDIUM_YAW, LOW, LOW};
 const int sizeOfSetPoints = sizeof(sp);
 
 struct CalibrationData {
@@ -87,7 +100,7 @@ void printJoystickData(struct JoystickInfo *ji) {
 
 void calculateSetpoints() {
   // THROTTLE
-  sp.throttle = (int) constrain(map(j1.valY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE), MIN_THROTTLE, MAX_THROTTLE);
+  sp.throttle = map(j1.valY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE);
   // PITCH
   sp.pitch = map(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_PITCH, MAX_PITCH);
   if (sp.pitch >= MEDIUM_PITCH - THRESHOLD && sp.pitch <= MEDIUM_PITCH + THRESHOLD) {
@@ -108,13 +121,16 @@ void calculateSetpoints() {
 void printSetpoints() {
   Serial.print("Throttle: ");
   Serial.print(sp.throttle);
-  Serial.print(" Pitch: ");
+  Serial.print("º \tPitch: ");
   Serial.print(sp.pitch);
-  Serial.print(" Roll: ");
+  Serial.print("º \tRoll: ");
   Serial.print(sp.roll);
-  Serial.print("º Yaw: ");
+  Serial.print("º \tYaw: ");
   Serial.print(sp.yaw);
-  Serial.print("º");
+  Serial.print("º \tStatus");
+  Serial.print(sp.status);
+  Serial.print(" \tHoldPos: ");
+  Serial.print(sp.holdPosition);
   Serial.println();
 }
 
@@ -150,8 +166,25 @@ void readPotentiometers() {
 
 }
 
+void readButtons() {
+  sp.status = digitalRead(BUTTON_STATUS);
+  sp.holdPosition = digitalRead(BUTTON_HOLD_POSITION);
+}
+
+void updateLeds() {
+  digitalWrite(LED_STATUS, sp.status);
+  digitalWrite(LED_HOLD_POSITION, sp.holdPosition);
+}
+
 void setup() {
 	Serial.begin(9600);
+
+  // CONTORL
+  pinMode(LED_STATUS, OUTPUT);
+  pinMode(LED_HOLD_POSITION, OUTPUT);
+  pinMode(BUTTON_STATUS, INPUT);
+  pinMode(BUTTON_HOLD_POSITION, INPUT);
+
   radio.begin();
   radio.setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
   radio.openWritingPipe(RADIO_ADDRESS);
@@ -162,6 +195,7 @@ void loop() {
   #ifdef TRANSMITTER
     readJoystick1();
     readJoystick2();
+    readButtons();
     calculateSetpoints();
     #ifdef DEBUG
       printJoystickData(&j1);
@@ -174,6 +208,8 @@ void loop() {
         Serial.println("Failed transmitting setpoints");
       #endif
     }
+
+    updateLeds();
   #endif
 
   #ifdef CALIBRATION

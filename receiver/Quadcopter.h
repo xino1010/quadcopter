@@ -14,13 +14,18 @@
 
 // CONSTANTS
 
+// BMP180
+#define MIN_ALTITUDE 3
+#define MAX_ALTITUDE 50
+
 // MOTORS
 #define PIN_MOTOR_FL 3
 #define PIN_MOTOR_FR 5
 #define PIN_MOTOR_BL 6
 #define PIN_MOTOR_BR 9
-#define ARM_MOTOR 1000
-#define MIN_VALUE_MOTOR 1100
+#define ARM_MOTOR 900
+#define ZERO_VALUE_MOTOR 1000
+#define MIN_VALUE_MOTOR 1300
 #define MAX_VALUE_MOTOR 2000
 #define MIN_VALUE_PID -1000.0
 #define MAX_VALUE_PID 1000.0
@@ -29,10 +34,16 @@
 #define RADIO_ADDRESS 0xABCDABCD71LL
 #define NFR24L01_CE 8
 #define NFR24L01_CSN 10
+#define CONTROL_MODE_OFF 100
+#define CONTROL_MODE_ACRO 101
+#define CONTROL_MODE_HOLD_DISTANCE 102
+#define CONTROL_MODE_HOLD_ALTITUDE 103
 
 // HC-SR04
 #define HCSR04_ECHO_PIN 2
 #define HCSR04_TRIGGER_PIN 4
+#define MIN_DISTANCE 0
+#define MAX_DISTANCE MIN_ALTITUDE
 
 // IMU
 #define MIN_PITCH -30
@@ -49,17 +60,22 @@ class Quadcopter {
 		float roll;
 		float yaw;
 		float throttle;
+    int status;
+    int holdPosition;
 	};
 
 	private:
 		// BMP180
 		Adafruit_BMP085 bmp;
+    float offsetAltitude;
 
 		// PID's
 		double kpPitch = 1, kiPitch = 0, kdPitch = 0;
 		double kpRoll = 1, kiRoll = 0, kdRoll = 0;
 		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
-		PID *pidRoll, *pidPitch, *pidYaw;
+		double kpDistance = 0, kiDistance = 0, kdDistance = 0;
+		double kpAltitude = 0, kiAltitude = 0, kdAltitude = 0;
+		PID *pidRoll, *pidPitch, *pidYaw, *pidDistance, *pidAltitude;
 
 		// MOTORS
 		int vFL, vFR, vBL, vBR;
@@ -69,10 +85,14 @@ class Quadcopter {
 		int throttle;
 		float desiredPitch, desiredRoll, desiredYaw;
 		RF24 &radio;
+    int cm;
+    bool controlModeChange;
 
 		// IMU
     MPU9250 myIMU;
 		float currentPitch, currentRoll, currentYaw, temperatureIMU;
+
+    // HC-SR04
 
 	public:
 		Quadcopter();
@@ -96,6 +116,7 @@ class Quadcopter {
 		void setVelocityBL(int vBL);
 		int getVelocityBR();
 		void setVelocityBR(int vBR);
+    void stopMotors();
 
 		// RADIO
 		int getDesiredPitch();
@@ -107,6 +128,8 @@ class Quadcopter {
 		int getThrottle();
 		void setThrottle(int throttle);
 		void updateRadioInfo();
+    void setControlMode(int cm);
+    int getControlMode();
 
 		// IMU
 		int getCurrentPitch();
@@ -122,5 +145,4 @@ class Quadcopter {
 
 		// HC-SR04
 		int getDistance();
-
 };

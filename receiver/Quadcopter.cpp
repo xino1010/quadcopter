@@ -2,10 +2,15 @@
 
 Quadcopter::Quadcopter() {
 
+  // BMP180
+  offsetAltitude = getAltitude();
+
 	// PID
 	pidPitch = new PID(kpPitch, kiPitch, kdPitch, MIN_PITCH, MAX_PITCH);
 	pidRoll = new PID(kpRoll, kiRoll, kdRoll, MIN_ROLL, MAX_ROLL);
 	pidYaw = new PID(kpYaw, kiYaw, kdYaw, MIN_YAW, MAX_YAW);
+  pidDistance = new PID(kpDistance, kiDistance, kdDistance, MIN_DISTANCE, MAX_DISTANCE);
+  pidAltitude = new PID(kpAltitude, kiAltitude, kdAltitude, MIN_ALTITUDE, MAX_ALTITUDE);
 
 	// MOTORS
 	vFL = 0;
@@ -15,7 +20,7 @@ Quadcopter::Quadcopter() {
 
 	// RADIO
 	//radio =  RF24(NFR24L01_CE, NFR24L01_CSN);
-	throttle = MIN_VALUE_MOTOR;
+	throttle = ZERO_VALUE_MOTOR;
   throttle = 1300;
 	desiredPitch = 0;
   pidPitch->setDesiredPoint(desiredPitch);
@@ -23,12 +28,16 @@ Quadcopter::Quadcopter() {
   pidRoll->setDesiredPoint(desiredRoll);
 	desiredYaw = 0;
   pidYaw->setDesiredPoint(desiredYaw);
+  pidDistance->setDesiredPoint(0);
+  pidAltitude->setDesiredPoint(offsetAltitude);
 	/*
 	radio.begin();
 	radio.setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
 	radio.openReadingPipe(1, RADIO_ADDRESS);
 	radio.startListening();
 	*/
+  cm = CONTROL_MODE_OFF;
+  controlModeChange = false;
 
 	// IMU
 	currentPitch = 0;
@@ -69,7 +78,7 @@ void Quadcopter::connectMotors() {
 	motorFR.attach(PIN_MOTOR_FR);
 	motorBL.attach(PIN_MOTOR_BL);
 	motorBR.attach(PIN_MOTOR_BR);
- 
+
   #ifdef DEBUG
     Serial.println("Motors attached");
   #endif
@@ -80,7 +89,7 @@ void Quadcopter::armMotors() {
 	motorFR.writeMicroseconds(ARM_MOTOR);
 	motorBL.writeMicroseconds(ARM_MOTOR);
 	motorBR.writeMicroseconds(ARM_MOTOR);
- 
+
   #ifdef DEBUG
     Serial.println("Motors armed");
   #endif
@@ -108,29 +117,61 @@ void Quadcopter::calculateVelocities() {
 	int tmpVBL = getThrottle() - resultRoll - resultPitch - resultYaw;
 	int tmpVBR = getThrottle() + resultRoll - resultPitch + resultYaw;
 
+  if (getControlMode() == CONTROL_MODE_HOLD_DISTANCE) {
+    int dist = getDistance();
+    if (controlModeChange) {
+      pidDistance->setCurrentPoint(dist);
+    }
+    pidDistance->setCurrentPoint(dist);
+    double resultDistance = pidDistance->calculate();
+    resultDistance = map(resultDistance, MIN_DISTANCE, MAX_DISTANCE, MIN_VALUE_PID, MAX_VALUE_PID);
+    tmpVFL += resultDistance;
+    tmpVFR += resultDistance;
+    tmpVBL += resultDistance;
+    tmpVBR += resultDistance;
+  }
+  else if (getControlMode() == CONTROL_MODE_HOLD_ALTITUDE) {
+    int alt = getAltitude();
+    if (controlModeChange) {
+      double currentPointAltitude = alt - offsetAltitude;
+      pidAltitude->setCurrentPoint(currentPointAltitude);
+    }
+    pidAltitude->setCurrentPoint(alt);
+    double resultAltitude = pidAltitude->calculate();
+    resultAltitude = map(resultAltitude, MIN_ALTITUDE, MAX_ALTITUDE, MIN_VALUE_PID, MAX_VALUE_PID);
+    tmpVFL += resultAltitude;
+    tmpVFR += resultAltitude;
+    tmpVBL += resultAltitude;
+    tmpVBR += resultAltitude;
+  }
+  controlModeChange = false;
+
 	// Check that the speeds do not exceed the limits
 	setVelocityFL(constrain(tmpVFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
 	setVelocityFR(constrain(tmpVFR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
 	setVelocityBL(constrain(tmpVBL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
 	setVelocityBR(constrain(tmpVBR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
-
-	#ifdef DEBUG_MOTORS
-		Serial.print("FL: ");
-		Serial.print(getVelocityFL());
-		Serial.print("\tFR: ");
-		Serial.print(getVelocityFR());
-		Serial.print("\tBL: ");
-		Serial.print(getVelocityBL());
-		Serial.print("\tBR: ");
-		Serial.println(getVelocityBR());
-	#endif
 }
 
 void Quadcopter::updateMotorsVelocities() {
-	motorFL.writeMicroseconds(getVelocityFL());
+  #ifdef DEBUG_MOTORS
+    Serial.print("CM: ");
+    Serial.print(cm);
+    Serial.print("\tFL: ");
+    Serial.print(getVelocityFL());
+    Serial.print("\tFR: ");
+    Serial.print(getVelocityFR());
+    Serial.print("\tBL: ");
+    Serial.print(getVelocityBL());
+    Serial.print("\tBR: ");
+    Serial.println(getVelocityBR());
+  #endif
+  /*
+  motorFL.writeMicroseconds(getVelocityFL());
 	motorFR.writeMicroseconds(getVelocityFR());
 	motorBL.writeMicroseconds(getVelocityBL());
 	motorBR.writeMicroseconds(getVelocityBR());
+  */
 }
 
 int Quadcopter::getVelocityFL() {
@@ -163,6 +204,20 @@ int Quadcopter::getVelocityBR() {
 
 void Quadcopter::setVelocityBR(int vBR) {
 	this->vBR = vBR;
+}
+
+void Quadcopter::stopMotors() {
+  this->vFL = ZERO_VALUE_MOTOR;
+  this->vFR = ZERO_VALUE_MOTOR;
+  this->vBL = ZERO_VALUE_MOTOR;
+  this->vBR = ZERO_VALUE_MOTOR;
+
+  #ifdef DEBUG_MOTORS
+    Serial.println("Motors stopped");
+  #endif
+
+  // Update altitude because quadcopter could have changed the position
+  offsetAltitude = getAltitude();
 }
 
 // RADIO
@@ -210,6 +265,32 @@ void Quadcopter::updateRadioInfo() {
 		setDesiredRoll(sp.roll);
 		setDesiredYaw(sp.yaw);
 		setThrottle(sp.throttle);
+    if (sp.status == HIGH) {
+      setControlMode(CONTROL_MODE_OFF);
+    }
+    else {
+      if (sp.holdPosition == HIGH) {
+        float distance = getDistance();
+        float altitudeSea = getAltitude();
+        float currentAltitude = altitudeSea - offsetAltitude;
+        if (distance >= MIN_DISTANCE && distance < MAX_DISTANCE) {
+          controlModeChange = getControlMode() != CONTROL_MODE_HOLD_DISTANCE;
+          setControlMode(CONTROL_MODE_HOLD_DISTANCE);
+        }
+        else if (currentAltitude > MAX_DISTANCE) {
+          controlModeChange = getControlMode() != CONTROL_MODE_HOLD_ALTITUDE;
+          setControlMode(CONTROL_MODE_HOLD_ALTITUDE);
+        }
+        else {
+          controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
+          setControlMode(CONTROL_MODE_ACRO);
+        }
+      }
+      else {
+        controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
+        setControlMode(CONTROL_MODE_ACRO);
+      }
+    }
 	}
 
 	#ifdef DEBUG
@@ -222,6 +303,14 @@ void Quadcopter::updateRadioInfo() {
 		Serial.print("\tYAW: ");
 		Serial.println(getDesiredYaw());
 	#endif
+}
+
+void Quadcopter::setControlMode(int cm) {
+  this->cm = cm;
+}
+
+int Quadcopter::getControlMode() {
+  return cm;
 }
 
 // IMU
@@ -396,7 +485,7 @@ int Quadcopter::getDistance() {
 	digitalWrite(HCSR04_TRIGGER_PIN, LOW);
 
    	// Measure the time between pulses (in microseconds)
-   	long duration = pulseIn(HCSR04_ECHO_PIN, HIGH);
+ 	long duration = pulseIn(HCSR04_ECHO_PIN, HIGH);
 	if (duration == 0) {
 		pinMode(HCSR04_ECHO_PIN, OUTPUT);
 		digitalWrite(HCSR04_ECHO_PIN, LOW);
