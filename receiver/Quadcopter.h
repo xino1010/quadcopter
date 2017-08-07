@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
 #include <Servo.h>
+#include <nRF24L01.h>
 #include "RF24.h"
 #include "PID.h"
 #include "quaternionFilters.h"
@@ -31,7 +32,7 @@
 #define MAX_VALUE_PID 1000.0
 
 // RADIO
-#define RADIO_ADDRESS 0xABCDABCD71LL
+const byte radioAddress[5] = {'c','a','n','a','l'};
 #define NFR24L01_CE 8
 #define NFR24L01_CSN 10
 #define CONTROL_MODE_OFF 100
@@ -55,15 +56,6 @@
 
 class Quadcopter {
 
-	struct SetPoints {
-		int pitch;
-		float roll;
-		float yaw;
-		float throttle;
-    int status;
-    int holdPosition;
-	};
-
 	private:
 		// BMP180
 		Adafruit_BMP085 bmp;
@@ -84,7 +76,8 @@ class Quadcopter {
 		// RADIO
 		int throttle;
 		float desiredPitch, desiredRoll, desiredYaw;
-		RF24 &radio;
+		RF24 *radio;
+    float radioData[6];
     int cm;
     bool controlModeChange;
 

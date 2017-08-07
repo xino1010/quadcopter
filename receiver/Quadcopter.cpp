@@ -19,7 +19,7 @@ Quadcopter::Quadcopter() {
 	vBR = 0;
 
 	// RADIO
-	//radio =  RF24(NFR24L01_CE, NFR24L01_CSN);
+	radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
 	throttle = ZERO_VALUE_MOTOR;
   throttle = 1300;
 	desiredPitch = 0;
@@ -30,12 +30,10 @@ Quadcopter::Quadcopter() {
   pidYaw->setDesiredPoint(desiredYaw);
   pidDistance->setDesiredPoint(0);
   pidAltitude->setDesiredPoint(offsetAltitude);
-	/*
-	radio.begin();
-	radio.setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
-	radio.openReadingPipe(1, RADIO_ADDRESS);
-	radio.startListening();
-	*/
+	radio->begin();
+	radio->setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
+	radio->openReadingPipe(1, radioAddress);
+	radio->startListening();
   cm = CONTROL_MODE_OFF;
   controlModeChange = false;
 
@@ -258,18 +256,17 @@ void Quadcopter::setThrottle(int throttle) {
 
 void Quadcopter::updateRadioInfo() {
 
-	if (radio.available()) {
-		SetPoints sp;
-		radio.read(&sp, sizeof(SetPoints));
-		setDesiredPitch(sp.pitch);
-		setDesiredRoll(sp.roll);
-		setDesiredYaw(sp.yaw);
-		setThrottle(sp.throttle);
-    if (sp.status == HIGH) {
+	if (radio->available()) {
+	  radio->read(radioData, sizeof(radioData));
+		setThrottle((int) radioData[0]);
+		setDesiredPitch(radioData[1]);
+		setDesiredRoll(radioData[2]);
+		setDesiredYaw(radioData[3]);
+    if ((int) radioData[4] == LOW) {
       setControlMode(CONTROL_MODE_OFF);
     }
     else {
-      if (sp.holdPosition == HIGH) {
+      if ((int) radioData[5] == HIGH) {
         float distance = getDistance();
         float altitudeSea = getAltitude();
         float currentAltitude = altitudeSea - offsetAltitude;
@@ -291,18 +288,28 @@ void Quadcopter::updateRadioInfo() {
         setControlMode(CONTROL_MODE_ACRO);
       }
     }
-	}
 
-	#ifdef DEBUG
-		Serial.print("THROTTLE: ");
-		Serial.print(getThrottle());
-		Serial.print("\tPITCH: ");
-		Serial.print(getDesiredPitch());
-		Serial.print("\tROLL: ");
-		Serial.print(getDesidedRoll());
-		Serial.print("\tYAW: ");
-		Serial.println(getDesiredYaw());
-	#endif
+    #ifdef DEBUG
+      Serial.print("THROTTLE: ");
+      Serial.print(getThrottle());
+      Serial.print("\tPITCH: ");
+      Serial.print(getDesiredPitch());
+      Serial.print("\tROLL: ");
+      Serial.print(getDesidedRoll());
+      Serial.print("\tYAW: ");
+      Serial.print(getDesiredYaw());
+      Serial.print("\tSTATUS: ");
+      Serial.print((int) radioData[4]);
+      Serial.print("\tCM: ");
+      Serial.println(getControlMode());
+    #endif
+   
+	}
+  else {
+    #ifdef DEBUG
+      Serial.println("There is no radio data");
+    #endif
+  }
 }
 
 void Quadcopter::setControlMode(int cm) {
