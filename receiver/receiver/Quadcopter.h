@@ -48,10 +48,13 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define MAX_DISTANCE MIN_ALTITUDE
 
 // IMU
+#define MAX_CHANGE_PITCH 15
 #define MIN_PITCH -30
 #define MAX_PITCH 30
+#define MAX_CHANGE_ROLL 15
 #define MIN_ROLL -30
 #define MAX_ROLL 30
+#define MAX_CHANGE_YAW 20
 #define MIN_YAW -45
 #define MAX_YAW 45
 #define MAX_CALIBRATION_ATTEMPTS 10
@@ -61,6 +64,9 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 class Quadcopter {
 
 	private:
+
+    int myAbs(int value);
+
 		// BMP180
 		Adafruit_BMP085 bmp;
     unsigned long previousAltitudeRead;
@@ -92,6 +98,7 @@ class Quadcopter {
 
 		// RADIO
 		int throttle;
+    float lastDesiredPitch, lastDesiredRoll, lastDesiredYaw;
 		float desiredPitch, desiredRoll, desiredYaw;
 		RF24 *radio;
     float radioData[7];

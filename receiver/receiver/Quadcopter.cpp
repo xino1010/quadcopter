@@ -13,10 +13,13 @@ Quadcopter::Quadcopter() {
   pidDistance = new PID(kpDistance, kiDistance, kdDistance, MIN_DISTANCE, MAX_DISTANCE);
   pidAltitude = new PID(kpAltitude, kiAltitude, kdAltitude, MIN_ALTITUDE, MAX_ALTITUDE);
   desiredPitch = 0;
+  lastDesiredPitch = 0;
   pidPitch->setDesiredPoint(desiredPitch);
 	desiredRoll = 0;
+  lastDesiredRoll = 0;
   pidRoll->setDesiredPoint(desiredRoll);
 	desiredYaw = 0;
+  lastDesiredYaw = 0;
   pidYaw->setDesiredPoint(desiredYaw);
   pidDistance->setDesiredPoint(0);
   pidAltitude->setDesiredPoint(offsetAltitude);
@@ -48,6 +51,10 @@ Quadcopter::Quadcopter() {
  	//pinMode(HCSR04_ECHO_PIN, INPUT);
  	//pinMode(HCSR04_TRIGGER_PIN, OUTPUT);
 
+}
+
+int Quadcopter::myAbs(int value) {
+  return value > 0 ? value : value * -1;
 }
 
 // BMP180
@@ -259,9 +266,27 @@ void Quadcopter::updateRadioInfo() {
 	if (radio->available()) {
 	  radio->read(radioData, sizeof(radioData));
 		setThrottle((int) radioData[0]);
+
+    // Check if there have sent any abnormal data
+    if (myAbs(lastDesiredPitch - getDesiredPitch()) > MAX_CHANGE_PITCH) {
+      radioData[1] = lastDesiredPitch;
+    }
+    if (myAbs(lastDesiredRoll - getDesiredPitch()) > MAX_CHANGE_ROLL) {
+      radioData[2] = lastDesiredRoll;
+    }
+    if (myAbs(lastDesiredYaw - getDesiredPitch()) > MAX_CHANGE_YAW) {
+      radioData[3] = lastDesiredYaw;
+    }
+
+    // Update desired angles
 		setDesiredPitch(radioData[1]);
 		setDesiredRoll(radioData[2]);
 		setDesiredYaw(radioData[3]);
+
+    // Update last desired angle
+    lastDesiredPitch = radioData[1];
+    lastDesiredPitch = radioData[2];
+    lastDesiredPitch = radioData[3];
 
     // Power off motors
     if ((int) radioData[4] == LOW) {
