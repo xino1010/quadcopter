@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 #include "Quadcopter.h"
 
 Quadcopter *quadcopter;
@@ -16,6 +18,29 @@ void setup() {
 	// Init MPU9250
 	quadcopter->initIMU();
 
+  // Check if MPU9250 is calibrated
+  if (!quadcopter->isCalibrated()) {
+    quadcopter->calibrateIMU();
+    if (!quadcopter->isCalibrated()) {
+      #ifdef DEBUG
+        Serial.println("MPU9250 can not be calibrated...");
+      #endif
+      while(true) {
+        delay(50);
+      }
+    }
+    else {
+    #ifdef DEBUG
+      Serial.println("MPU9250 has been calibrated on the second attempt");
+    #endif
+    }
+  }
+  else {
+    #ifdef DEBUG
+      Serial.println("MPU9250 is calibrated");
+    #endif
+  }
+
 	// Connect Motors
 	//quadcopter->connectMotors();
 	delay(50);
@@ -31,7 +56,7 @@ void setup() {
 
 void loop() {
 	// Read data from radio
-	//quadcopter->updateRadioInfo();
+	quadcopter->updateRadioInfo();
 
   if (quadcopter->getControlMode() == CONTROL_MODE_OFF) {
     // Set minim velocity to all motors

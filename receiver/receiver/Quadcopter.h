@@ -18,6 +18,7 @@
 // BMP180
 #define MIN_ALTITUDE 3
 #define MAX_ALTITUDE 50
+#define TIME_READ_ALTITUDE 3000
 
 // MOTORS
 #define PIN_MOTOR_FL 3
@@ -32,7 +33,7 @@
 #define MAX_VALUE_PID 1000.0
 
 // RADIO
-const byte radioAddress[5] = {'c','a','n','a','l'};
+const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define NFR24L01_CE 8
 #define NFR24L01_CSN 10
 #define CONTROL_MODE_OFF 100
@@ -53,13 +54,19 @@ const byte radioAddress[5] = {'c','a','n','a','l'};
 #define MAX_ROLL 30
 #define MIN_YAW -45
 #define MAX_YAW 45
+#define MAX_CALIBRATION_ATTEMPTS 10
+#define NUMBER_OF_READINGS_IMU 150
+#define OFFSET_ANGLE 0.5
 
 class Quadcopter {
 
 	private:
 		// BMP180
 		Adafruit_BMP085 bmp;
+    unsigned long previousAltitudeRead;
     float offsetAltitude;
+    float getAltitude();
+    float getTemperature();
 
 		// PID's
 		double kpPitch = 1, kiPitch = 0, kdPitch = 0;
@@ -72,70 +79,73 @@ class Quadcopter {
 		// MOTORS
 		int vFL, vFR, vBL, vBR;
 		Servo motorFL, motorFR, motorBL, motorBR;
+    void connectMotors();
+    void armMotors();
+    int getVelocityFL();
+    void setVelocityFL(int vFL);
+    int getVelocityFR();
+    void setVelocityFR(int vFR);
+    int getVelocityBL();
+    void setVelocityBL(int vBL);
+    int getVelocityBR();
+    void setVelocityBR(int vBR);
 
 		// RADIO
 		int throttle;
 		float desiredPitch, desiredRoll, desiredYaw;
 		RF24 *radio;
-    float radioData[6];
+    float radioData[7];
     int cm;
     bool controlModeChange;
+    int getDesiredPitch();
+    void setDesiredPitch(float desiredPitch);
+    int getDesidedRoll();
+    void setDesiredRoll(float desiredRoll);
+    int getDesiredYaw();
+    void setDesiredYaw(float desiredYaw);
+    int getThrottle();
+    void setThrottle(int throttle);
+    void setControlMode(int cm);
 
 		// IMU
     MPU9250 myIMU;
 		float currentPitch, currentRoll, currentYaw, temperatureIMU;
+    int getCurrentPitch();
+    void setCurrentPitch(float currentPitch);
+    int getCurrentRoll();
+    void setCurrentRoll(float currentRoll);
+    int getCurrentYaw();
+    void setCurrentYaw(float currentYaw);
+    void getReadingsIMU(float *avgAngles);
+    float getTemperatureIMU();
+    void setTemperatureIMU(float temperatureIMU);
 
     // HC-SR04
+    int getDistance();
 
 	public:
 		Quadcopter();
 
-		// BMP180
-		float getAltitude();
-		float getTemperature();
+    // BMP180
 
 		// PID's
 
 		// MOTORS
-		void connectMotors();
-		void armMotors();
-		void calculateVelocities();
-		void updateMotorsVelocities();
-		int getVelocityFL();
-		void setVelocityFL(int vFL);
-		int getVelocityFR();
-		void setVelocityFR(int vFR);
-		int getVelocityBL();
-		void setVelocityBL(int vBL);
-		int getVelocityBR();
-		void setVelocityBR(int vBR);
     void stopMotors();
+    void calculateVelocities();
+    void updateMotorsVelocities();
 
 		// RADIO
-		int getDesiredPitch();
-		void setDesiredPitch(float desiredPitch);
-		int getDesidedRoll();
-		void setDesiredRoll(float desiredRoll);
-		int getDesiredYaw();
-		void setDesiredYaw(float desiredYaw);
-		int getThrottle();
-		void setThrottle(int throttle);
-		void updateRadioInfo();
-    void setControlMode(int cm);
+    void updateRadioInfo();
     int getControlMode();
 
 		// IMU
-		int getCurrentPitch();
-		void setCurrentPitch(float currentPitch);
-		int getCurrentRoll();
-		void setCurrentRoll(float currentRoll);
-		int getCurrentYaw();
-		void setCurrentYaw(float currentYaw);
-		void initIMU();
-		void updateAngles();
-    float getTemperatureIMU();
-    void setTemperatureIMU(float temperatureIMU);
+    void initIMU();
+    bool isCalibrated();
+    void calibrateIMU();
+    void updateAngles();
 
-		// HC-SR04
-		int getDistance();
+    // HC-SR04
+
+
 };

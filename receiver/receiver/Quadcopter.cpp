@@ -4,6 +4,7 @@ Quadcopter::Quadcopter() {
 
   // BMP180
   offsetAltitude = getAltitude();
+  previousAltitudeRead = millis();
 
 	// PID
 	pidPitch = new PID(kpPitch, kiPitch, kdPitch, MIN_PITCH, MAX_PITCH);
@@ -11,6 +12,14 @@ Quadcopter::Quadcopter() {
 	pidYaw = new PID(kpYaw, kiYaw, kdYaw, MIN_YAW, MAX_YAW);
   pidDistance = new PID(kpDistance, kiDistance, kdDistance, MIN_DISTANCE, MAX_DISTANCE);
   pidAltitude = new PID(kpAltitude, kiAltitude, kdAltitude, MIN_ALTITUDE, MAX_ALTITUDE);
+  desiredPitch = 0;
+  pidPitch->setDesiredPoint(desiredPitch);
+	desiredRoll = 0;
+  pidRoll->setDesiredPoint(desiredRoll);
+	desiredYaw = 0;
+  pidYaw->setDesiredPoint(desiredYaw);
+  pidDistance->setDesiredPoint(0);
+  pidAltitude->setDesiredPoint(offsetAltitude);
 
 	// MOTORS
 	vFL = 0;
@@ -22,14 +31,6 @@ Quadcopter::Quadcopter() {
 	radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
 	throttle = ZERO_VALUE_MOTOR;
   throttle = 1300;
-	desiredPitch = 0;
-  pidPitch->setDesiredPoint(desiredPitch);
-	desiredRoll = 0;
-  pidRoll->setDesiredPoint(desiredRoll);
-	desiredYaw = 0;
-  pidYaw->setDesiredPoint(desiredYaw);
-  pidDistance->setDesiredPoint(0);
-  pidAltitude->setDesiredPoint(offsetAltitude);
 	radio->begin();
 	radio->setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
 	radio->openReadingPipe(1, radioAddress);
@@ -52,7 +53,7 @@ Quadcopter::Quadcopter() {
 // BMP180
 float Quadcopter::getAltitude() {
 	float altitude = bmp.readAltitude();
-	#ifdef DEBUG
+	#ifdef DEBUG_IMU
 		Serial.print("BMP180 Altitude: ");
 		Serial.print(altitude);
 		Serial.println("m");
@@ -62,7 +63,7 @@ float Quadcopter::getAltitude() {
 
 float Quadcopter::getTemperature() {
 	float temperature = bmp.readTemperature();;
-	#ifdef DEBUG
+	#ifdef DEBUG_IMU
 		Serial.print("BMP180 Temperature: ");
 		Serial.print(temperature);
 		Serial.println("ºC");
@@ -88,7 +89,7 @@ void Quadcopter::armMotors() {
 	motorBL.writeMicroseconds(ARM_MOTOR);
 	motorBR.writeMicroseconds(ARM_MOTOR);
 
-  #ifdef DEBUG
+  #ifdef DEBUG_MOTORS
     Serial.println("Motors armed");
   #endif
 }
@@ -118,29 +119,29 @@ void Quadcopter::calculateVelocities() {
   if (getControlMode() == CONTROL_MODE_HOLD_DISTANCE) {
     int dist = getDistance();
     if (controlModeChange) {
-      pidDistance->setCurrentPoint(dist);
+      pidDistance->setDesiredPoint(dist);
     }
     pidDistance->setCurrentPoint(dist);
     double resultDistance = pidDistance->calculate();
     resultDistance = map(resultDistance, MIN_DISTANCE, MAX_DISTANCE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL += resultDistance;
-    tmpVFR += resultDistance;
-    tmpVBL += resultDistance;
-    tmpVBR += resultDistance;
+    tmpVFL -= resultDistance;
+    tmpVFR -= resultDistance;
+    tmpVBL -= resultDistance;
+    tmpVBR -= resultDistance;
   }
   else if (getControlMode() == CONTROL_MODE_HOLD_ALTITUDE) {
     int alt = getAltitude();
+    double currentPointAltitude = alt - offsetAltitude;
     if (controlModeChange) {
-      double currentPointAltitude = alt - offsetAltitude;
-      pidAltitude->setCurrentPoint(currentPointAltitude);
+      pidAltitude->setDesiredPoint(currentPointAltitude);
     }
-    pidAltitude->setCurrentPoint(alt);
+    pidAltitude->setCurrentPoint(currentPointAltitude);
     double resultAltitude = pidAltitude->calculate();
     resultAltitude = map(resultAltitude, MIN_ALTITUDE, MAX_ALTITUDE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL += resultAltitude;
-    tmpVFR += resultAltitude;
-    tmpVBL += resultAltitude;
-    tmpVBR += resultAltitude;
+    tmpVFL -= resultAltitude;
+    tmpVFR -= resultAltitude;
+    tmpVBL -= resultAltitude;
+    tmpVBR -= resultAltitude;
   }
   controlModeChange = false;
 
@@ -155,13 +156,13 @@ void Quadcopter::updateMotorsVelocities() {
   #ifdef DEBUG_MOTORS
     Serial.print("CM: ");
     Serial.print(cm);
-    Serial.print("\tFL: ");
+    Serial.print(" FL: ");
     Serial.print(getVelocityFL());
-    Serial.print("\tFR: ");
+    Serial.print(" FR: ");
     Serial.print(getVelocityFR());
-    Serial.print("\tBL: ");
+    Serial.print(" BL: ");
     Serial.print(getVelocityBL());
-    Serial.print("\tBR: ");
+    Serial.print(" BR: ");
     Serial.println(getVelocityBR());
   #endif
   /*
@@ -210,12 +211,11 @@ void Quadcopter::stopMotors() {
   this->vBL = ZERO_VALUE_MOTOR;
   this->vBR = ZERO_VALUE_MOTOR;
 
-  #ifdef DEBUG_MOTORS
-    Serial.println("Motors stopped");
-  #endif
-
   // Update altitude because quadcopter could have changed the position
-  offsetAltitude = getAltitude();
+  if (millis() - previousAltitudeRead > TIME_READ_ALTITUDE) {
+    offsetAltitude = getAltitude();
+    previousAltitudeRead = millis();
+  }
 }
 
 // RADIO
@@ -262,48 +262,41 @@ void Quadcopter::updateRadioInfo() {
 		setDesiredPitch(radioData[1]);
 		setDesiredRoll(radioData[2]);
 		setDesiredYaw(radioData[3]);
+
+    // Power off motors
     if ((int) radioData[4] == LOW) {
       setControlMode(CONTROL_MODE_OFF);
     }
-    else {
-      if ((int) radioData[5] == HIGH) {
-        float distance = getDistance();
-        float altitudeSea = getAltitude();
-        float currentAltitude = altitudeSea - offsetAltitude;
-        if (distance >= MIN_DISTANCE && distance < MAX_DISTANCE) {
-          controlModeChange = getControlMode() != CONTROL_MODE_HOLD_DISTANCE;
-          setControlMode(CONTROL_MODE_HOLD_DISTANCE);
-        }
-        else if (currentAltitude > MAX_DISTANCE) {
-          controlModeChange = getControlMode() != CONTROL_MODE_HOLD_ALTITUDE;
-          setControlMode(CONTROL_MODE_HOLD_ALTITUDE);
-        }
-        else {
-          controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
-          setControlMode(CONTROL_MODE_ACRO);
-        }
+    // Stabilize dron and keep the distance
+    else if ((int) radioData[5] == HIGH) {
+      float distance = getDistance();
+      if (distance >= MIN_DISTANCE && distance < MAX_DISTANCE) {
+        controlModeChange = getControlMode() != CONTROL_MODE_HOLD_DISTANCE;
+        setControlMode(CONTROL_MODE_HOLD_DISTANCE);
       }
       else {
         controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
         setControlMode(CONTROL_MODE_ACRO);
       }
     }
-
-    #ifdef DEBUG
-      Serial.print("THROTTLE: ");
-      Serial.print(getThrottle());
-      Serial.print("\tPITCH: ");
-      Serial.print(getDesiredPitch());
-      Serial.print("\tROLL: ");
-      Serial.print(getDesidedRoll());
-      Serial.print("\tYAW: ");
-      Serial.print(getDesiredYaw());
-      Serial.print("\tSTATUS: ");
-      Serial.print((int) radioData[4]);
-      Serial.print("\tCM: ");
-      Serial.println(getControlMode());
-    #endif
-   
+    // Stabilize dron and keep the altitud
+    else if ((int) radioData[6] == HIGH) {
+      float altitudeSea = getAltitude();
+      float currentAltitude = altitudeSea - offsetAltitude;
+      if (currentAltitude >= MIN_ALTITUDE && currentAltitude < MAX_ALTITUDE) {
+        controlModeChange = getControlMode() != CONTROL_MODE_HOLD_ALTITUDE;
+        setControlMode(CONTROL_MODE_HOLD_ALTITUDE);
+      }
+      else {
+        controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
+        setControlMode(CONTROL_MODE_ACRO);
+      }
+    }
+    // Stabilize dron and respond transmitter orders
+    else {
+      controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
+      setControlMode(CONTROL_MODE_ACRO);
+    }
 	}
   else {
     #ifdef DEBUG
@@ -348,7 +341,7 @@ void Quadcopter::setCurrentYaw(float currentYaw) {
 void Quadcopter::initIMU() {
   // Read the WHO_AM_I register, this is a good test of communication
   byte c = myIMU.readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
-  #ifdef DEBUG
+  #ifdef DEBUG_IMU
     Serial.print("MPU9250 "); Serial.print("I AM "); Serial.print(c, HEX);
     // VIEJO
     //Serial.print(" I should be "); Serial.println(0x71, HEX);
@@ -361,25 +354,25 @@ void Quadcopter::initIMU() {
   //if (c == 0x71) {
   // NUEVO
   if (c == 0x73) {
-    #ifdef DEBUG
+    #ifdef DEBUG_IMU
       Serial.println("MPU9250 is online...");
     #endif
     myIMU.initMPU9250();
-    #ifdef DEBUG
+    #ifdef DEBUG_IMU
       Serial.println("MPU9250 initialized for active data mode....");
     #endif
 
     // Read the WHO_AM_I register of the magnetometer, this is a good test of
     // communication
     byte d = myIMU.readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);
-    #ifdef DEBUG
+    #ifdef DEBUG_IMU
       Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX);
       Serial.print(" I should be "); Serial.println(0x48, HEX);
     #endif
 
     // Get magnetometer calibration from AK8963 ROM
     myIMU.initAK8963(myIMU.magCalibration);
-    #ifdef DEBUG
+    #ifdef DEBUG_IMU
       // Initialize device for active mode read of magnetometer
       Serial.println("AK8963 initialized for active data mode....");
     #endif
@@ -389,6 +382,54 @@ void Quadcopter::initIMU() {
     Serial.println(c, HEX);
     while(1) ; // Loop forever if communication doesn't happen
   }
+}
+
+bool Quadcopter::isCalibrated() {
+  float avgAngles[2]; // Pitch, Roll
+  getReadingsIMU(avgAngles);
+  #ifdef DEBUG_IMU
+    Serial.print("#Checking calibration...");
+    Serial.print("\tPitch: ");
+    Serial.print(avgAngles[0]);
+    Serial.print("\tRoll: ");
+    Serial.println(avgAngles[1]);
+  #endif
+  return (-OFFSET_ANGLE <= avgAngles[0] && avgAngles[0] < OFFSET_ANGLE) && (-OFFSET_ANGLE <= avgAngles[1] && avgAngles[1] < OFFSET_ANGLE);
+}
+
+void Quadcopter::getReadingsIMU(float *avgAngles) {
+  avgAngles[0] = 0.0; // Pitch
+  avgAngles[1] = 0.0; // Roll
+  for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
+    updateAngles();
+    avgAngles[0] += getCurrentPitch();
+    avgAngles[1] += getCurrentRoll();
+    delay(25);
+  }
+  avgAngles[0] /= NUMBER_OF_READINGS_IMU;
+  avgAngles[1] /= NUMBER_OF_READINGS_IMU;
+}
+
+void Quadcopter::calibrateIMU() {
+  int numCalibration = 0;
+  bool calibrated = false;
+  do {
+    // Calibrate gyro and accelerometers, load biases in bias registers
+    myIMU.calibrateMPU9250(myIMU.gyroBias, myIMU.accelBias);
+    float avgAngles[2]; // Pitch, Roll
+    getReadingsIMU(avgAngles);
+    #ifdef DEBUG_IMU
+      Serial.print("#Calibration: ");
+      Serial.print(numCalibration + 1);
+      Serial.print("\tPitch: ");
+      Serial.print(avgAngles[0]);
+      Serial.print("\tRoll: ");
+      Serial.println(avgAngles[1]);
+    #endif
+    numCalibration++;
+    calibrated = (-OFFSET_ANGLE <= avgAngles[0] && avgAngles[0] < OFFSET_ANGLE) && (-OFFSET_ANGLE <= avgAngles[1] && avgAngles[1] < OFFSET_ANGLE);
+  } while (!calibrated && numCalibration <= MAX_CALIBRATION_ATTEMPTS);
+  delay(3000);
 }
 
 void Quadcopter::updateAngles() {
