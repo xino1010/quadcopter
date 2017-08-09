@@ -1,7 +1,7 @@
 class PID {
 	private:
 		double I = 0;
-		double kP, kI, kD;
+		float kP, kI, kD;
 		double lowerLimit = 0;
 		double upperLimit = 0;
 		double desiredPoint = 0;
@@ -11,10 +11,13 @@ class PID {
 		double lastError = 0;
 
 	public:
-		PID(double kP, double kI, double kD, double lowerLimit, double upperLimit);
-		void setKp(double kP);
-		void setKi(double kI);
-		void setKd(double kD);
+		PID(float kP, float kI, float kD, double lowerLimit, double upperLimit);
+		void setKp(float kP);
+    float getKp();
+		void setKi(float kI);
+    float getKi();
+		void setKd(float kD);
+    float getKd();
 		void setDesiredPoint(double desiredPoint);
 		void setCurrentPoint(double currentPoint);
 		double calculate();

@@ -264,7 +264,7 @@ void Quadcopter::setThrottle(int throttle) {
 void Quadcopter::updateRadioInfo() {
 
 	if (radio->available()) {
-	  radio->read(radioData, sizeof(radioData));
+	  radio->read(radioData, sizeRadioData);
 		setThrottle((int) radioData[0]);
 
     // Check if there have sent any abnormal data
@@ -325,7 +325,7 @@ void Quadcopter::updateRadioInfo() {
 	}
   else {
     #ifdef DEBUG
-      Serial.println("There is no radio data");
+      Serial.println("There is no radio angles data");
     #endif
   }
 }
@@ -336,6 +336,68 @@ void Quadcopter::setControlMode(int cm) {
 
 int Quadcopter::getControlMode() {
   return cm;
+}
+
+void Quadcopter::updatePIDInfo() {
+  if (radio->available()) {
+	  radio->read(radioPIDdata, sizeRadioPIDdata);
+
+    #ifdef CALIBRATION_PITCH
+      pidPitch->setKd(radioPIDdata[0]);
+      pidPitch->setKi(radioPIDdata[1]);
+      pidPitch->setKd(radioPIDdata[2]);
+      if (((int) radioPIDdata[4]) == HIGH) {
+        pidPitch->reset();
+      }
+      #ifdef DEBUG
+        Serial.print("kP: ");
+        Serial.print(pidPitch->getKp());
+        Serial.print("kI: ");
+        Serial.print(pidPitch->getKi());
+        Serial.print("\tkD: ");
+        Serial.println(pidPitch->getKd());
+      #endif
+    #endif
+
+    #ifdef CALIBRATION_PITCH
+      pidRoll->setKd(radioPIDdata[0]);
+      pidRoll->setKi(radioPIDdata[1]);
+      pidRoll->setKd(radioPIDdata[2]);
+      if (((int) radioPIDdata[4]) == HIGH) {
+        pidRoll->reset();
+      }
+      #ifdef DEBUG
+        Serial.print("kP: ");
+        Serial.print(pidRoll->getKp());
+        Serial.print("kI: ");
+        Serial.print(pidRoll->getKi());
+        Serial.print("\tkD: ");
+        Serial.println(pidRoll->getKd());
+      #endif
+    #endif
+
+    #ifdef CALIBRATION_YAW
+      pidYaw->setKd(radioPIDdata[0]);
+      pidYaw->setKi(radioPIDdata[1]);
+      pidYaw->setKd(radioPIDdata[2]);
+      if (((int) radioPIDdata[4]) == HIGH) {
+        pidYaw->reset();
+      }
+      #ifdef DEBUG
+        Serial.print("kP: ");
+        Serial.print(pidYaw->getKp());
+        Serial.print("kI: ");
+        Serial.print(pidYaw->getKi());
+        Serial.print("\tkD: ");
+        Serial.println(pidYaw->getKd());
+      #endif
+    #endif
+  }
+  else {
+    #ifdef DEBUG
+      Serial.println("There is no radio pid data");
+    #endif
+  }
 }
 
 // IMU

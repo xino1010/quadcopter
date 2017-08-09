@@ -10,21 +10,24 @@ void setup() {
   #endif
 
   c = new Controller();
+
+  #ifdef NORMAL_MODE
+    c->calibrateJoysticks();
+  #endif
 }
 
 void loop() {
-  
-  #ifdef TRANSMITTER
+
+  #ifdef NORMAL_MODE
     c->getControllerData();
     c->calculateSetpoints();
     c->sendRadioInfo();
   #endif
 
-  #ifdef CALIBRATION
+  #ifdef CALIBRATION_MODE
     c->readPotentiometers();
-    c->sendCalibrationData();
     c->sendCalibrationData();
   #endif
 
-	delay(50);
+	delay(25);
 }

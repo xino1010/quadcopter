@@ -4,15 +4,19 @@
 #include "RF24.h"
 
 #define DEBUG
-#define TRANSMITTER
-//#define DEBUG_JOYSTICKS
-//#define DEBUG_BUTTONS
-//#define DEBUG_RADIO
-//#define CALIBRATION
+#ifdef DEBUG
+  //#define DEBUG_JOYSTICKS
+  //#define DEBUG_BUTTONS
+  //#define DEBUG_RADIO
+#endif
+
+#define NORMAL_MODE
+
+//#define CALIBRATION_MODE
 
 // TRANSMITTER
 #define MIN_ANALOG_VALUE 0
-#define MEDIUM_ANALOG_VALUE 512
+#define MEDIUM_ANALOG_VALUE 511
 #define MAX_ANALOG_VALUE 1023
 #define ZERO_THROTTLE 1000
 #define MIN_THROTTLE 1300
@@ -36,6 +40,7 @@
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
 #define POTENTIOMETRE_KD A3
+#define RESET_BUTTON 2
 #define MIN_KP 0.0
 #define MAX_KP 3.0
 #define MIN_KI 0.0
@@ -50,6 +55,7 @@
 #define BUTTON_STATUS 6
 #define BUTTON_HOLD_DISTANCE 7
 #define BUTTON_HOLD_ALTITUDE 8
+#define NUMBER_READS_GET_OFFSET_JOYSTICK 400
 
 class Controller {
 
@@ -83,10 +89,11 @@ class Controller {
       float kP;
       float kI;
       float kD;
+      int reset;
     };
 
     CalibrationData cd;
-    float calibrationData[3];
+    float calibrationData[4];
     const int sizeCalibrationData = sizeof(calibrationData);
 
     // CONTROL
@@ -96,6 +103,8 @@ class Controller {
       int pinY;
       int valX;
       int valY;
+      int offsetX;
+      int offsetY;
     };
 
     JoystickInfo j1;
@@ -128,5 +137,6 @@ class Controller {
     void sendCalibrationData();
 
     // CONTROL
+    void calibrateJoysticks();
     void getControllerData();
 };

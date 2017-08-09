@@ -13,7 +13,14 @@
   #define DEBUG_MOTORS
 #endif
 
-// CONSTANTS
+#define NORMAL_MODE
+
+#define CALIBRATION_MODE
+#ifdef CALIBRATION_MODE
+  #define CALIBRATION_PITCH
+  //#define CALIBRATION_ROLL
+  //#define CALIBRATION_YAW
+#endif
 
 // BMP180
 #define MIN_ALTITUDE 3
@@ -102,6 +109,10 @@ class Quadcopter {
 		float desiredPitch, desiredRoll, desiredYaw;
 		RF24 *radio;
     float radioData[7];
+    const int sizeRadioData = sizeof(radioData);
+    float radioPIDdata[4];
+    const int sizeRadioPIDdata = sizeof(radioPIDdata);
+
     int cm;
     bool controlModeChange;
     int getDesiredPitch();
@@ -143,6 +154,7 @@ class Quadcopter {
     void updateMotorsVelocities();
 
 		// RADIO
+    void updatePIDInfo();
     void updateRadioInfo();
     int getControlMode();
 

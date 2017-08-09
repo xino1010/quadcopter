@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "PID.h"
 
-PID::PID(double kP, double kI, double kD, double lowerLimit, double upperLimit) {
+PID::PID(float kP, float kI, float kD, double lowerLimit, double upperLimit) {
   this->kP = kP;
   this->kI = kI;
   this->kD = kD;
@@ -10,16 +10,28 @@ PID::PID(double kP, double kI, double kD, double lowerLimit, double upperLimit) 
   this->_time = millis();
 }
 
-void PID::setKp(double kP) {
+void PID::setKp(float kP) {
   this->kP = kP;
 }
 
-void PID::setKi(double kI) {
+float PID::getKp() {
+  return kP;
+}
+
+void PID::setKi(float kI) {
   this->kI = kI;
 }
 
-void PID::setKd(double kD) {
+float PID::getKi() {
+  return kI;
+}
+
+void PID::setKd(float kD) {
   this->kD = kD;
+}
+
+float PID::getKd() {
+  return kD;
 }
 
 void PID::setDesiredPoint(double desiredPoint) {
@@ -36,14 +48,10 @@ double PID::calculate() {
   double dt = (_time - lastDt) / 1000.0;
   double currentError = currentPoint - desiredPoint;
   I += currentError * dt;
-  double D = kD * ((currentError - lastError) / dt);
+  double D = (currentError - lastError) / dt;
   lastError = currentError;
   double PID = (kP * currentError) + (kI * I) + (kD * D);
-  if (PID < lowerLimit)
-          PID = lowerLimit;
-  if (PID > upperLimit)
-          PID = upperLimit;
-  return PID;
+  return constrain(PID, lowerLimit, upperLimit);
 }
 
 void PID::reset() {

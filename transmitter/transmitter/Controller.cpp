@@ -20,6 +20,7 @@ Controller::Controller() {
   cd.kP = MIN_KP;
   cd.kI = MIN_KI;
   cd.kD = MIN_KD;
+  cd.reset =  LOW;
 
   // CONTROL
   pinMode(LED_STATUS, OUTPUT);
@@ -34,12 +35,16 @@ Controller::Controller() {
   j1.pinY = A1;
   j1.valX = MEDIUM_ANALOG_VALUE;
   j1.valY = 0;
+  j1.offsetX = 0;
+  j1.offsetY = 0;
 
   j2.num = 2;
   j2.pinX = A2;
   j2.pinY = A3;
   j2.valX = MEDIUM_ANALOG_VALUE;
   j2.valY = MEDIUM_ANALOG_VALUE;
+  j2.offsetX = 0;
+  j2.offsetY = 0;
 
   lastButtonStatus = LOW;
   lastButtonHoldDistance = LOW;
@@ -127,6 +132,7 @@ void Controller::readPotentiometers() {
   cd.kP = analogRead(POTENTIOMETRE_KP);
   cd.kI = analogRead(POTENTIOMETRE_KI);
   cd.kD = analogRead(POTENTIOMETRE_KD);
+  cd.reset = digitalRead(RESET_BUTTON);
   #ifdef DEBUG
     Serial.print("AkP: ");
     Serial.print(cd.kP);
@@ -134,6 +140,8 @@ void Controller::readPotentiometers() {
     Serial.print(cd.kI);
     Serial.print("\tAkD: ");
     Serial.print(cd.kD);
+    Serial.print("\tReset: ");
+    Serial.print(cd.reset);
   #endif
 
   cd.kP = mapFloat(cd.kP, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KP, MAX_KP);
@@ -146,14 +154,17 @@ void Controller::readPotentiometers() {
     Serial.print("\tkI: ");
     Serial.print(cd.kI);
     Serial.print("\tkD: ");
-    Serial.println(cd.kD);
+    Serial.print(cd.kD);
+    Serial.print("\tReset: ");
+    Serial.println(cd.reset);
   #endif
 }
 
 void Controller::sendCalibrationData() {
-  calibrationData[0] = sp.throttle;
-  calibrationData[1] = sp.pitch;
-  calibrationData[2] = sp.roll;
+  calibrationData[0] = cd.kP;
+  calibrationData[1] = cd.kI;
+  calibrationData[2] = cd.kD;
+  calibrationData[3] = cd.reset;
   if (radio->write(&calibrationData, sizeCalibrationData)) {
     #ifdef DEBUG
       Serial.println("Data sent");
@@ -168,13 +179,13 @@ void Controller::sendCalibrationData() {
 
 // CONTROL
 void Controller::readJoystick1() {
-  j1.valX = analogRead(j1.pinX);
-  j1.valY = constrain(analogRead(j1.pinY), MIN_ANALOG_VALUE, MEDIUM_ANALOG_VALUE);
+  j1.valX = analogRead(j1.pinX) + j1.offsetX;
+  j1.valY = constrain(analogRead(j1.pinY) + j1.offsetY, MIN_ANALOG_VALUE, MEDIUM_ANALOG_VALUE);
 }
 
 void Controller::readJoystick2() {
-  j2.valX = analogRead(j2.pinX);
-  j2.valY = analogRead(j2.pinY);
+  j2.valX = analogRead(j2.pinX) + j2.offsetX;
+  j2.valY = analogRead(j2.pinY) + j2.offsetY;
 }
 
 void Controller::printJoystickData(struct JoystickInfo *ji) {
@@ -226,6 +237,52 @@ void Controller::updateLeds() {
   digitalWrite(LED_STATUS, sp.status);
   digitalWrite(LED_HOLD_DISTANCE, sp.holdDistance);
   digitalWrite(LED_HOLD_ALTITUDE, sp.holdAltitude);
+}
+
+void Controller::calibrateJoysticks() {
+  #ifdef DEBUG
+    Serial.println("Calibrating joysticks...");
+  #endif
+
+  double offsets[4] = { 0, 0, 0, 0 };
+  for (int i = 0; i < NUMBER_READS_GET_OFFSET_JOYSTICK; i++) {
+    offsets[0] += analogRead(j1.pinX);
+    offsets[1] += analogRead(j1.pinY);
+    offsets[2] += analogRead(j2.pinX);
+    offsets[3] += analogRead(j2.pinY);
+    delay(10);
+  }
+  int offset1x = (int) (offsets[0] / NUMBER_READS_GET_OFFSET_JOYSTICK);
+  int offset1y = (int) (offsets[1] / NUMBER_READS_GET_OFFSET_JOYSTICK);
+  int offset2x = (int) (offsets[2] / NUMBER_READS_GET_OFFSET_JOYSTICK);
+  int offset2y = (int) (offsets[3] / NUMBER_READS_GET_OFFSET_JOYSTICK);
+
+  #ifdef DEBUG
+    Serial.print("J1X_AVG: ");
+    Serial.print(offset1x);
+    Serial.print("\tJ1Y_AVG: ");
+    Serial.print(offset1y);
+    Serial.print("\tJ2X_AVG: ");
+    Serial.print(offset2x);
+    Serial.print("\tJ2T_AVG: ");
+    Serial.println(offset2y);
+  #endif
+
+  j1.offsetX = MEDIUM_ANALOG_VALUE - offset1x;
+  j1.offsetY = MEDIUM_ANALOG_VALUE - offset1y;
+  j2.offsetX = MEDIUM_ANALOG_VALUE - offset2x;
+  j2.offsetY = MEDIUM_ANALOG_VALUE - offset2y;
+
+  #ifdef DEBUG
+    Serial.print("J1X_OFFSET: ");
+    Serial.print(j1.offsetX);
+    Serial.print("\tJ1Y_OFFSET: ");
+    Serial.print(j1.offsetY);
+    Serial.print("\tJ2X_OFFSET: ");
+    Serial.print(j2.offsetX);
+    Serial.print("\tJ2Y_OFFSET: ");
+    Serial.println(j2.offsetY);
+  #endif
 }
 
 void Controller::getControllerData() {

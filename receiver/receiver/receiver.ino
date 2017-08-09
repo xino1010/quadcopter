@@ -55,8 +55,16 @@ void setup() {
 }
 
 void loop() {
-	// Read data from radio
-	quadcopter->updateRadioInfo();
+
+  #ifdef NORMAL_MODE
+  	// Read data from radio
+  	quadcopter->updateRadioInfo();
+  #endif
+
+  #ifdef CALIBRATION_MODE
+    // Read constants of kpi from radio
+    quadcopter->updatePIDInfo();
+  #endif
 
   if (quadcopter->getControlMode() == CONTROL_MODE_OFF) {
     // Set minim velocity to all motors
