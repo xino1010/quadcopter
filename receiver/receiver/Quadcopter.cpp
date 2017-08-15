@@ -2,6 +2,9 @@
 
 Quadcopter::Quadcopter() {
 
+  // LED
+  pinMode(LED_PIN , OUTPUT);  //definir pin como salida
+
   // BMP180
   if (!bmp.begin()) {
     #ifdef DEBUG_BMP
@@ -20,7 +23,9 @@ Quadcopter::Quadcopter() {
 	pidRoll = new PID(kpRoll, kiRoll, kdRoll, MIN_ROLL, MAX_ROLL);
 	pidYaw = new PID(kpYaw, kiYaw, kdYaw, MIN_YAW, MAX_YAW);
   pidDistance = new PID(kpDistance, kiDistance, kdDistance, MIN_DISTANCE, MAX_DISTANCE);
+  pidDistance->setDesiredPoint(DESIRED_DISTANCE);
   pidAltitude = new PID(kpAltitude, kiAltitude, kdAltitude, MIN_ALTITUDE, MAX_ALTITUDE);
+  pidAltitude->setDesiredPoint(DESIRED_ALTITUDE);
   desiredPitch = 0;
   lastDesiredPitch = 0;
   pidPitch->setDesiredPoint(desiredPitch);
@@ -131,37 +136,38 @@ void Quadcopter::calculateVelocities() {
   resultYaw = map(resultYaw, MIN_YAW, MAX_YAW, MIN_VALUE_PID, MAX_VALUE_PID);
 
 	// The velocities are obtained from the calculations of the pids
-	int tmpVFL = getThrottle() - resultRoll + resultPitch + resultYaw;
-	int tmpVFR = getThrottle() + resultRoll + resultPitch - resultYaw;
-	int tmpVBL = getThrottle() - resultRoll - resultPitch - resultYaw;
-	int tmpVBR = getThrottle() + resultRoll - resultPitch + resultYaw;
 
-  if (getControlMode() == CONTROL_MODE_HOLD_DISTANCE) {
+  int tmpVFL = 0;
+  int tmpVFR = 0;
+  int tmpVBL = 0;
+  int tmpVBR = 0;
+
+  if (getControlMode() == CONTROL_MODE_ACRO) {
+    tmpVFL = getThrottle() - resultRoll + resultPitch + resultYaw;
+  	tmpVFR = getThrottle() + resultRoll + resultPitch - resultYaw;
+  	tmpVBL = getThrottle() - resultRoll - resultPitch - resultYaw;
+  	tmpVBR = getThrottle() + resultRoll - resultPitch + resultYaw;
+  }
+  else if (getControlMode() == CONTROL_MODE_HOLD_DISTANCE) {
     int dist = getDistance();
-    if (controlModeChange) {
-      pidDistance->setDesiredPoint(dist);
-    }
     pidDistance->setCurrentPoint(dist);
     double resultDistance = pidDistance->calculate();
     resultDistance = map(resultDistance, MIN_DISTANCE, MAX_DISTANCE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL -= resultDistance;
-    tmpVFR -= resultDistance;
-    tmpVBL -= resultDistance;
-    tmpVBR -= resultDistance;
+    tmpVFL = MIN_VALUE_MOTOR - resultDistance - resultRoll + resultPitch + resultYaw;
+  	tmpVFR = MIN_VALUE_MOTOR - resultDistance + resultRoll + resultPitch - resultYaw;
+  	tmpVBL = MIN_VALUE_MOTOR - resultDistance - resultRoll - resultPitch - resultYaw;
+  	tmpVBR = MIN_VALUE_MOTOR - resultDistance + resultRoll - resultPitch + resultYaw;
   }
   else if (getControlMode() == CONTROL_MODE_HOLD_ALTITUDE) {
     int alt = getAltitude();
     double currentPointAltitude = alt - offsetAltitude;
-    if (controlModeChange) {
-      pidAltitude->setDesiredPoint(currentPointAltitude);
-    }
     pidAltitude->setCurrentPoint(currentPointAltitude);
     double resultAltitude = pidAltitude->calculate();
     resultAltitude = map(resultAltitude, MIN_ALTITUDE, MAX_ALTITUDE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL -= resultAltitude;
-    tmpVFR -= resultAltitude;
-    tmpVBL -= resultAltitude;
-    tmpVBR -= resultAltitude;
+    tmpVFL = MIN_VALUE_MOTOR - resultAltitude - resultRoll + resultPitch + resultYaw;
+  	tmpVFR = MIN_VALUE_MOTOR - resultAltitude + resultRoll + resultPitch - resultYaw;
+  	tmpVBL = MIN_VALUE_MOTOR - resultAltitude - resultRoll - resultPitch - resultYaw;
+  	tmpVBR = MIN_VALUE_MOTOR - resultAltitude + resultRoll - resultPitch + resultYaw;
   }
   controlModeChange = false;
 
@@ -491,12 +497,12 @@ void Quadcopter::calculateIMUOffsets() {
     updateAngles();
     avgAngles[0] += getCurrentPitch();
     avgAngles[1] += getCurrentRoll();
-    //avgAngles[2] += getCurrentYaw();
+    avgAngles[2] += getCurrentYaw();
     delay(10);
   }
   offsetPitch = 0 - (avgAngles[0] / (float) NUMBER_OF_READINGS_IMU);
   offsetRoll = 0 - (avgAngles[1] / (float) NUMBER_OF_READINGS_IMU);
-  //offsetYaw = 0 - (avgAngles[2] / (float) NUMBER_OF_READINGS_IMU);
+  offsetYaw = 0 - (avgAngles[2] / (float) NUMBER_OF_READINGS_IMU);
   #ifdef DEBUG_IMU
     Serial.print("#Offsets...");
     Serial.print("\tPitch: ");
@@ -673,4 +679,13 @@ int Quadcopter::getDistance() {
 	#endif
 
 	return distance;
+}
+
+// LED
+void Quadcopter::enableLED() {
+  digitalWrite(LED_PIN, HIGH);
+}
+
+void Quadcopter::disableLED() {
+  digitalWrite(LED_PIN, LOW);
 }

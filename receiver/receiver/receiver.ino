@@ -14,6 +14,7 @@ void setup() {
   #endif
 
   quadcopter = new Quadcopter();
+  quadcopter->disableLED();
 
 	// Init MPU9250
 	quadcopter->initIMU();
@@ -32,6 +33,9 @@ void setup() {
 	#ifdef DEBUG
 	  Serial.println("Quadcopter initialized");
   #endif
+
+  quadcopter->enableLED();
+
 }
 
 void loop() {

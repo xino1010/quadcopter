@@ -29,6 +29,7 @@
 #define MIN_ALTITUDE 300
 #define MAX_ALTITUDE 5000
 #define TIME_READ_ALTITUDE 3000
+#define DESIRED_ALTITUDE 3000
 
 // MOTORS
 #define PIN_MOTOR_FL 3
@@ -56,6 +57,7 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define HCSR04_TRIGGER_PIN 4
 #define MIN_DISTANCE 0
 #define MAX_DISTANCE MIN_ALTITUDE
+#define DESIRED_DISTANCE 200
 
 // IMU
 #define MAX_CHANGE_PITCH 15
@@ -71,6 +73,9 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define NUMBER_OF_READINGS_IMU_FOR_HEATING 600
 #define NUMBER_OF_READINGS_IMU 300
 #define OFFSET_ANGLE 0.5
+
+// LED
+#define LED_PIN 7
 
 class Quadcopter {
 
@@ -172,5 +177,8 @@ class Quadcopter {
 
     // HC-SR04
 
+    // LED
+    void enableLED();
+    void disableLED();
 
 };
