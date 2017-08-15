@@ -70,8 +70,8 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define MIN_YAW -45
 #define MAX_YAW 45
 #define MAX_CALIBRATION_ATTEMPTS 5
-#define NUMBER_OF_READINGS_IMU_FOR_HEATING 600
-#define NUMBER_OF_READINGS_IMU 300
+#define NUMBER_OF_READINGS_IMU_FOR_HEATING 2500
+#define NUMBER_OF_READINGS_IMU 1000
 #define OFFSET_ANGLE 0.5
 
 // LED
@@ -92,7 +92,7 @@ class Quadcopter {
 
 		// PID's
 		double kpPitch = 1, kiPitch = 0, kdPitch = 0;
-		double kpRoll = 1, kiRoll = 0, kdRoll = 0;
+		double kpRoll = 0, kiRoll = 0, kdRoll = 0;
 		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
 		double kpDistance = 0, kiDistance = 0, kdDistance = 0;
 		double kpAltitude = 0, kiAltitude = 0, kdAltitude = 0;

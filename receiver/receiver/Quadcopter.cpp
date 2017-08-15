@@ -53,7 +53,8 @@ Quadcopter::Quadcopter() {
 	radio->setPALevel(RF24_PA_MAX); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
 	radio->openReadingPipe(1, radioAddress);
 	radio->startListening();
-  cm = CONTROL_MODE_OFF;
+  //cm = CONTROL_MODE_OFF;
+  cm = CONTROL_MODE_ACRO;
   controlModeChange = false;
 
 	// IMU
@@ -354,10 +355,8 @@ int Quadcopter::getControlMode() {
 
 void Quadcopter::updatePIDInfo() {
   if (radio->available()) {
-	  while (radio->available()) {
-	    radio->read(radioPIDdata, sizeRadioPIDdata);
-	  }
-
+    radio->read(radioPIDdata, sizeRadioPIDdata);
+    
     #ifdef CALIBRATION_PITCH
       pidPitch->setKd(radioPIDdata[0]);
       pidPitch->setKi(radioPIDdata[1]);
@@ -490,15 +489,17 @@ void Quadcopter::initIMU() {
 void Quadcopter::calculateIMUOffsets() {
   for (int i = 0; i < NUMBER_OF_READINGS_IMU_FOR_HEATING; i++) {
     updateAngles();
-    delay(10);
   }
+  delay(500);
+  #ifdef DEBUG_IMU
+    Serial.println("Calculating offsets...");
+  #endif
   float avgAngles[3] = { 0.0, 0.0, 0.0 };
   for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
     updateAngles();
     avgAngles[0] += getCurrentPitch();
     avgAngles[1] += getCurrentRoll();
     avgAngles[2] += getCurrentYaw();
-    delay(10);
   }
   offsetPitch = 0 - (avgAngles[0] / (float) NUMBER_OF_READINGS_IMU);
   offsetRoll = 0 - (avgAngles[1] / (float) NUMBER_OF_READINGS_IMU);

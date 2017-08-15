@@ -14,7 +14,7 @@ void setup() {
   #endif
 
   quadcopter = new Quadcopter();
-  quadcopter->disableLED();
+  quadcopter->enableLED();
 
 	// Init MPU9250
 	quadcopter->initIMU();
@@ -34,7 +34,7 @@ void setup() {
 	  Serial.println("Quadcopter initialized");
   #endif
 
-  quadcopter->enableLED();
+  quadcopter->disableLED();
 
 }
 
@@ -50,7 +50,7 @@ void loop() {
     quadcopter->updatePIDInfo();
   #endif
 
-  if (false) {//quadcopter->getControlMode() == CONTROL_MODE_OFF) {
+  if (quadcopter->getControlMode() == CONTROL_MODE_OFF) {
     // Set minim velocity to all motors
     quadcopter->stopMotors();
   }
