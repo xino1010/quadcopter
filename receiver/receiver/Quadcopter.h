@@ -9,13 +9,16 @@
 
 #define DEBUG
 #ifdef DEBUG
+  //#define DEBUG_BMP
   //#define DEBUG_IMU
   #define DEBUG_MOTORS
+  //#define DEBUG_RADIO
+  //#define DEBUG_SONAR
 #endif
 
 #define NORMAL_MODE
 
-#define CALIBRATION_MODE
+//#define CALIBRATION_MODE
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
   //#define CALIBRATION_ROLL
@@ -23,8 +26,8 @@
 #endif
 
 // BMP180
-#define MIN_ALTITUDE 3
-#define MAX_ALTITUDE 50
+#define MIN_ALTITUDE 300
+#define MAX_ALTITUDE 5000
 #define TIME_READ_ALTITUDE 3000
 
 // MOTORS
@@ -34,7 +37,7 @@
 #define PIN_MOTOR_BR 9
 #define ARM_MOTOR 900
 #define ZERO_VALUE_MOTOR 1000
-#define MIN_VALUE_MOTOR 1300
+#define MIN_VALUE_MOTOR 1100
 #define MAX_VALUE_MOTOR 2000
 #define MIN_VALUE_PID -1000.0
 #define MAX_VALUE_PID 1000.0
@@ -64,8 +67,9 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define MAX_CHANGE_YAW 20
 #define MIN_YAW -45
 #define MAX_YAW 45
-#define MAX_CALIBRATION_ATTEMPTS 10
-#define NUMBER_OF_READINGS_IMU 150
+#define MAX_CALIBRATION_ATTEMPTS 5
+#define NUMBER_OF_READINGS_IMU_FOR_HEATING 600
+#define NUMBER_OF_READINGS_IMU 300
 #define OFFSET_ANGLE 0.5
 
 class Quadcopter {
@@ -108,7 +112,7 @@ class Quadcopter {
     float lastDesiredPitch, lastDesiredRoll, lastDesiredYaw;
 		float desiredPitch, desiredRoll, desiredYaw;
 		RF24 *radio;
-    float radioData[7];
+    int radioData[7];
     const int sizeRadioData = sizeof(radioData);
     float radioPIDdata[4];
     const int sizeRadioPIDdata = sizeof(radioPIDdata);
@@ -117,7 +121,7 @@ class Quadcopter {
     bool controlModeChange;
     int getDesiredPitch();
     void setDesiredPitch(float desiredPitch);
-    int getDesidedRoll();
+    int getDesiredRoll();
     void setDesiredRoll(float desiredRoll);
     int getDesiredYaw();
     void setDesiredYaw(float desiredYaw);
@@ -128,6 +132,7 @@ class Quadcopter {
 		// IMU
     MPU9250 myIMU;
 		float currentPitch, currentRoll, currentYaw, temperatureIMU;
+    float offsetPitch, offsetRoll, offsetYaw;
     int getCurrentPitch();
     void setCurrentPitch(float currentPitch);
     int getCurrentRoll();
@@ -137,6 +142,8 @@ class Quadcopter {
     void getReadingsIMU(float *avgAngles);
     float getTemperatureIMU();
     void setTemperatureIMU(float temperatureIMU);
+    bool isCalibrated();
+    void calibrateIMU();
 
     // HC-SR04
     int getDistance();
@@ -160,9 +167,8 @@ class Quadcopter {
 
 		// IMU
     void initIMU();
-    bool isCalibrated();
-    void calibrateIMU();
     void updateAngles();
+    void calculateIMUOffsets();
 
     // HC-SR04
 

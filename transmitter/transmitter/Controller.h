@@ -7,7 +7,7 @@
 #ifdef DEBUG
   //#define DEBUG_JOYSTICKS
   //#define DEBUG_BUTTONS
-  //#define DEBUG_RADIO
+  #define DEBUG_RADIO
 #endif
 
 #define NORMAL_MODE
@@ -19,7 +19,7 @@
 #define MEDIUM_ANALOG_VALUE 511
 #define MAX_ANALOG_VALUE 1023
 #define ZERO_THROTTLE 1000
-#define MIN_THROTTLE 1300
+#define MIN_THROTTLE 1100
 #define MAX_THROTTLE 2000
 #define MIN_PITCH -30
 #define MEDIUM_PITCH 0
@@ -81,7 +81,7 @@ class Controller {
     // RADIO
     const byte address[5] = {'c', 'a', 'n', 'a', 'l'};
     RF24 *radio;
-    float radioData[7];
+    int radioData[7];
     const int sizeRadioData = sizeof(radioData);
 
     // CALIBRATION

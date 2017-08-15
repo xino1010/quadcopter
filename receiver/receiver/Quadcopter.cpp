@@ -3,6 +3,15 @@
 Quadcopter::Quadcopter() {
 
   // BMP180
+  if (!bmp.begin()) {
+    #ifdef DEBUG_BMP
+      Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+    #endif
+    while (true) {
+      delay(1000);
+    }
+  }
+  delay(1000);
   offsetAltitude = getAltitude();
   previousAltitudeRead = millis();
 
@@ -33,9 +42,10 @@ Quadcopter::Quadcopter() {
 	// RADIO
 	radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
 	throttle = ZERO_VALUE_MOTOR;
-  throttle = 1300;
+  throttle = MIN_VALUE_MOTOR;
 	radio->begin();
-	radio->setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
+  radio->setDataRate(RF24_250KBPS);
+	radio->setPALevel(RF24_PA_MAX); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
 	radio->openReadingPipe(1, radioAddress);
 	radio->startListening();
   cm = CONTROL_MODE_OFF;
@@ -46,6 +56,9 @@ Quadcopter::Quadcopter() {
 	currentRoll = 0;
 	currentYaw = 0;
 	temperatureIMU = 0;
+  offsetPitch = 0;
+  offsetRoll = 0;
+  offsetYaw = 0;
 
 	// HC-SR04
  	//pinMode(HCSR04_ECHO_PIN, INPUT);
@@ -60,7 +73,7 @@ int Quadcopter::myAbs(int value) {
 // BMP180
 float Quadcopter::getAltitude() {
 	float altitude = bmp.readAltitude();
-	#ifdef DEBUG_IMU
+	#ifdef DEBUG_BMP
 		Serial.print("BMP180 Altitude: ");
 		Serial.print(altitude);
 		Serial.println("m");
@@ -70,7 +83,7 @@ float Quadcopter::getAltitude() {
 
 float Quadcopter::getTemperature() {
 	float temperature = bmp.readTemperature();;
-	#ifdef DEBUG_IMU
+	#ifdef DEBUG_BMP
 		Serial.print("BMP180 Temperature: ");
 		Serial.print(temperature);
 		Serial.println("ºC");
@@ -85,7 +98,7 @@ void Quadcopter::connectMotors() {
 	motorBL.attach(PIN_MOTOR_BL);
 	motorBR.attach(PIN_MOTOR_BR);
 
-  #ifdef DEBUG
+  #ifdef DEBUG_MOTORS
     Serial.println("Motors attached");
   #endif
 }
@@ -235,7 +248,7 @@ void Quadcopter::setDesiredPitch(float desiredPitch) {
 	pidPitch->setDesiredPoint(this->desiredPitch);
 }
 
-int Quadcopter::getDesidedRoll() {
+int Quadcopter::getDesiredRoll() {
 	return desiredRoll;
 }
 
@@ -265,16 +278,16 @@ void Quadcopter::updateRadioInfo() {
 
 	if (radio->available()) {
 	  radio->read(radioData, sizeRadioData);
-		setThrottle((int) radioData[0]);
+		setThrottle(radioData[0]);
 
     // Check if there have sent any abnormal data
     if (myAbs(lastDesiredPitch - getDesiredPitch()) > MAX_CHANGE_PITCH) {
       radioData[1] = lastDesiredPitch;
     }
-    if (myAbs(lastDesiredRoll - getDesiredPitch()) > MAX_CHANGE_ROLL) {
+    if (myAbs(lastDesiredRoll - getDesiredRoll()) > MAX_CHANGE_ROLL) {
       radioData[2] = lastDesiredRoll;
     }
-    if (myAbs(lastDesiredYaw - getDesiredPitch()) > MAX_CHANGE_YAW) {
+    if (myAbs(lastDesiredYaw - getDesiredYaw()) > MAX_CHANGE_YAW) {
       radioData[3] = lastDesiredYaw;
     }
 
@@ -285,15 +298,15 @@ void Quadcopter::updateRadioInfo() {
 
     // Update last desired angle
     lastDesiredPitch = radioData[1];
-    lastDesiredPitch = radioData[2];
-    lastDesiredPitch = radioData[3];
+    lastDesiredRoll = radioData[2];
+    lastDesiredYaw = radioData[3];
 
     // Power off motors
-    if ((int) radioData[4] == LOW) {
+    if (radioData[4] == LOW) {
       setControlMode(CONTROL_MODE_OFF);
     }
     // Stabilize dron and keep the distance
-    else if ((int) radioData[5] == HIGH) {
+    else if (radioData[5] == HIGH) {
       float distance = getDistance();
       if (distance >= MIN_DISTANCE && distance < MAX_DISTANCE) {
         controlModeChange = getControlMode() != CONTROL_MODE_HOLD_DISTANCE;
@@ -305,7 +318,7 @@ void Quadcopter::updateRadioInfo() {
       }
     }
     // Stabilize dron and keep the altitud
-    else if ((int) radioData[6] == HIGH) {
+    else if (radioData[6] == HIGH) {
       float altitudeSea = getAltitude();
       float currentAltitude = altitudeSea - offsetAltitude;
       if (currentAltitude >= MIN_ALTITUDE && currentAltitude < MAX_ALTITUDE) {
@@ -323,11 +336,6 @@ void Quadcopter::updateRadioInfo() {
       setControlMode(CONTROL_MODE_ACRO);
     }
 	}
-  else {
-    #ifdef DEBUG
-      Serial.println("There is no radio angles data");
-    #endif
-  }
 }
 
 void Quadcopter::setControlMode(int cm) {
@@ -340,7 +348,9 @@ int Quadcopter::getControlMode() {
 
 void Quadcopter::updatePIDInfo() {
   if (radio->available()) {
-	  radio->read(radioPIDdata, sizeRadioPIDdata);
+	  while (radio->available()) {
+	    radio->read(radioPIDdata, sizeRadioPIDdata);
+	  }
 
     #ifdef CALIBRATION_PITCH
       pidPitch->setKd(radioPIDdata[0]);
@@ -394,7 +404,7 @@ void Quadcopter::updatePIDInfo() {
     #endif
   }
   else {
-    #ifdef DEBUG
+    #ifdef DEBUG_RADIO
       Serial.println("There is no radio pid data");
     #endif
   }
@@ -471,9 +481,47 @@ void Quadcopter::initIMU() {
   }
 }
 
+void Quadcopter::calculateIMUOffsets() {
+  for (int i = 0; i < NUMBER_OF_READINGS_IMU_FOR_HEATING; i++) {
+    updateAngles();
+    delay(10);
+  }
+  float avgAngles[3] = { 0.0, 0.0, 0.0 };
+  for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
+    updateAngles();
+    avgAngles[0] += getCurrentPitch();
+    avgAngles[1] += getCurrentRoll();
+    //avgAngles[2] += getCurrentYaw();
+    delay(10);
+  }
+  offsetPitch = 0 - (avgAngles[0] / (float) NUMBER_OF_READINGS_IMU);
+  offsetRoll = 0 - (avgAngles[1] / (float) NUMBER_OF_READINGS_IMU);
+  //offsetYaw = 0 - (avgAngles[2] / (float) NUMBER_OF_READINGS_IMU);
+  #ifdef DEBUG_IMU
+    Serial.print("#Offsets...");
+    Serial.print("\tPitch: ");
+    Serial.print(offsetPitch);
+    Serial.print("\tRoll: ");
+    Serial.print(offsetRoll);
+    Serial.print("\tYaw: ");
+    Serial.println(offsetYaw);
+  #endif
+}
+
 bool Quadcopter::isCalibrated() {
-  float avgAngles[2]; // Pitch, Roll
-  getReadingsIMU(avgAngles);
+  for (int i = 0; i < NUMBER_OF_READINGS_IMU_FOR_HEATING; i++) {
+    updateAngles();
+    delay(20);
+  }
+  float avgAngles[2] = { 0.0, 0.0 };
+  for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
+    updateAngles();
+    avgAngles[0] += getCurrentPitch();
+    avgAngles[1] += getCurrentRoll();
+    delay(20);
+  }
+  avgAngles[0] /= NUMBER_OF_READINGS_IMU;
+  avgAngles[1] /= NUMBER_OF_READINGS_IMU;
   #ifdef DEBUG_IMU
     Serial.print("#Checking calibration...");
     Serial.print("\tPitch: ");
@@ -484,39 +532,22 @@ bool Quadcopter::isCalibrated() {
   return (-OFFSET_ANGLE <= avgAngles[0] && avgAngles[0] < OFFSET_ANGLE) && (-OFFSET_ANGLE <= avgAngles[1] && avgAngles[1] < OFFSET_ANGLE);
 }
 
-void Quadcopter::getReadingsIMU(float *avgAngles) {
-  avgAngles[0] = 0.0; // Pitch
-  avgAngles[1] = 0.0; // Roll
-  for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
-    updateAngles();
-    avgAngles[0] += getCurrentPitch();
-    avgAngles[1] += getCurrentRoll();
-    delay(25);
-  }
-  avgAngles[0] /= NUMBER_OF_READINGS_IMU;
-  avgAngles[1] /= NUMBER_OF_READINGS_IMU;
-}
-
 void Quadcopter::calibrateIMU() {
   int numCalibration = 0;
   bool calibrated = false;
   do {
     // Calibrate gyro and accelerometers, load biases in bias registers
     myIMU.calibrateMPU9250(myIMU.gyroBias, myIMU.accelBias);
-    float avgAngles[2]; // Pitch, Roll
-    getReadingsIMU(avgAngles);
+    calibrated = isCalibrated();
     #ifdef DEBUG_IMU
       Serial.print("#Calibration: ");
       Serial.print(numCalibration + 1);
-      Serial.print("\tPitch: ");
-      Serial.print(avgAngles[0]);
-      Serial.print("\tRoll: ");
-      Serial.println(avgAngles[1]);
+      Serial.print("\tCalibrated: ");
+      Serial.println(calibrated);
     #endif
     numCalibration++;
-    calibrated = (-OFFSET_ANGLE <= avgAngles[0] && avgAngles[0] < OFFSET_ANGLE) && (-OFFSET_ANGLE <= avgAngles[1] && avgAngles[1] < OFFSET_ANGLE);
+    delay(5000);
   } while (!calibrated && numCalibration <= MAX_CALIBRATION_ATTEMPTS);
-  delay(3000);
 }
 
 void Quadcopter::updateAngles() {
@@ -563,7 +594,7 @@ void Quadcopter::updateAngles() {
   // Must be called before updating quaternions!
   myIMU.updateTime();
 
-  //  MadgwickQuaternionUpdate(myIMU.ax, myIMU.ay, myIMU.az, myIMU.gx * PI/180.0f, myIMU.gy * PI/180.0f, myIMU.gz * PI/180.0f,  myIMU.my,  myIMU.mx, myIMU.mz);
+  //MadgwickQuaternionUpdate(myIMU.ax, myIMU.ay, myIMU.az, myIMU.gx * PI/180.0f, myIMU.gy * PI/180.0f, myIMU.gz * PI/180.0f,  myIMU.my,  myIMU.mx, myIMU.mz, myIMU.deltat);
   MahonyQuaternionUpdate(myIMU.ax, myIMU.ay, myIMU.az, myIMU.gx * DEG_TO_RAD, myIMU.gy * DEG_TO_RAD, myIMU.gz * DEG_TO_RAD, myIMU.my, myIMU.mx, myIMU.mz, myIMU.deltat);
 
   myIMU.tempCount = myIMU.readTempData();  // Read the adc values
@@ -586,6 +617,10 @@ void Quadcopter::updateAngles() {
   // - http://www.ngdc.noaa.gov/geomag-web/#declination
   myIMU.yaw   -= 0.18333;
   myIMU.roll  *= RAD_TO_DEG;
+
+  myIMU.pitch += offsetPitch;
+  myIMU.roll += offsetRoll;
+  myIMU.yaw += offsetYaw;
 
   setCurrentPitch(myIMU.pitch);
   setCurrentRoll(myIMU.roll);
@@ -631,7 +666,7 @@ int Quadcopter::getDistance() {
 	// Convert distance to cm
 	int distance = duration * 10 / 292 / 2;
 
-	#ifdef DEBUG
+	#ifdef DEBUG_SONAR
 		Serial.print("HC-SR04 Floor distance: ");
 		Serial.print(distance);
 		Serial.println("cm");

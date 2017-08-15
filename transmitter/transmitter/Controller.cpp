@@ -13,8 +13,10 @@ Controller::Controller() {
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
   radio->begin();
-  radio->setPALevel(RF24_PA_HIGH); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
+  radio->setDataRate(RF24_250KBPS);
+  radio->setPALevel(RF24_PA_MAX); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
   radio->openWritingPipe(address);
+  radio->stopListening();
 
   // CALIBRATION
   cd.kP = MIN_KP;
@@ -66,19 +68,19 @@ float Controller::mapFloat(long x, long in_min, long in_max, long out_min, long 
 // TRANSMITTER
 void Controller::calculateSetpoints() {
   // THROTTLE
-  sp.throttle = map(j1.valY, MEDIUM_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE);
+  sp.throttle = map(j1.valY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE);
   // PITCH
-  sp.pitch = map(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MAX_PITCH, MIN_PITCH);
+  sp.pitch = map(j2.valY, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MAX_PITCH, MIN_PITCH);
   if (sp.pitch >= MEDIUM_PITCH - THRESHOLD && sp.pitch <= MEDIUM_PITCH + THRESHOLD) {
     sp.pitch = MEDIUM_PITCH;
   }
   // ROLL
-  sp.roll = map(j2.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_ROLL, MAX_ROLL);
+  sp.roll = map(j2.valX, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_ROLL, MAX_ROLL);
   if (sp.roll >= MEDIUM_ROLL - THRESHOLD && sp.roll <= MEDIUM_ROLL + THRESHOLD) {
     sp.roll = MEDIUM_ROLL;
   }
   // YAW
-  sp.yaw = map(j1.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_YAW, MAX_YAW);
+  sp.yaw = map(j1.valX, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_YAW, MAX_YAW);
   if (sp.yaw >= MEDIUM_YAW - THRESHOLD && sp.yaw <= MEDIUM_YAW + THRESHOLD) {
     sp.yaw = MEDIUM_YAW;
   }
@@ -180,7 +182,7 @@ void Controller::sendCalibrationData() {
 // CONTROL
 void Controller::readJoystick1() {
   j1.valX = analogRead(j1.pinX) + j1.offsetX;
-  j1.valY = constrain(analogRead(j1.pinY) + j1.offsetY, MIN_ANALOG_VALUE, MEDIUM_ANALOG_VALUE);
+  j1.valY = constrain(analogRead(j1.pinY) + j1.offsetY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE);
 }
 
 void Controller::readJoystick2() {
