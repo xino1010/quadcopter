@@ -7,12 +7,13 @@
 #ifdef DEBUG
   //#define DEBUG_JOYSTICKS
   //#define DEBUG_BUTTONS
-  #define DEBUG_RADIO
+  //#define DEBUG_RADIO
+  //#define DEBUG_POTENTIOMETERS
+  #define DEBUG_PID_VALUES
 #endif
 
-#define NORMAL_MODE
-
-//#define CALIBRATION_MODE
+//#define NORMAL_MODE
+#define CALIBRATION_MODE
 
 // TRANSMITTER
 #define MIN_ANALOG_VALUE 0
@@ -37,6 +38,7 @@
 #define NFR24L01_CSN 10
 
 // CALIBRATION
+#define BUTTON_RESET 5
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
 #define POTENTIOMETRE_KD A3
@@ -95,6 +97,8 @@ class Controller {
     CalibrationData cd;
     float calibrationData[4];
     const int sizeCalibrationData = sizeof(calibrationData);
+    int lastButtonReset;
+    int buttonReset;
 
     // CONTROL
     struct JoystickInfo {
@@ -135,6 +139,7 @@ class Controller {
     // CALIBRATION
     void readPotentiometers();
     void sendCalibrationData();
+    void readResetButton();
 
     // CONTROL
     void calibrateJoysticks();

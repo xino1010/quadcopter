@@ -23,6 +23,9 @@ Controller::Controller() {
   cd.kI = MIN_KI;
   cd.kD = MIN_KD;
   cd.reset =  LOW;
+  lastButtonReset = LOW;
+  buttonReset = 0;
+  pinMode(BUTTON_RESET, INPUT);
 
   // CONTROL
   pinMode(LED_STATUS, OUTPUT);
@@ -85,27 +88,26 @@ void Controller::calculateSetpoints() {
     sp.yaw = MEDIUM_YAW;
   }
 
-  #ifdef DEBUG
-    printSetpoints();
-  #endif
+  printSetpoints();
 }
 
 void Controller::printSetpoints() {
-  Serial.print("Throttle: ");
-  Serial.print(sp.throttle);
-  Serial.print(" \tPitch: ");
-  Serial.print(sp.pitch);
-  Serial.print("º \tRoll: ");
-  Serial.print(sp.roll);
-  Serial.print("º \tYaw: ");
-  Serial.print(sp.yaw);
-  Serial.print("º \tStatus: ");
-  Serial.print(sp.status);
-  Serial.print(" \tHoldDist: ");
-  Serial.print(sp.holdDistance);
-  Serial.print(" \tHoldAlt: ");
-  Serial.print(sp.holdAltitude);
-  Serial.println();
+  #ifdef DEBUG_
+    Serial.print("Throttle: ");
+    Serial.print(sp.throttle);
+    Serial.print(" \tPitch: ");
+    Serial.print(sp.pitch);
+    Serial.print("º \tRoll: ");
+    Serial.print(sp.roll);
+    Serial.print("º \tYaw: ");
+    Serial.print(sp.yaw);
+    Serial.print("º \tStatus: ");
+    Serial.print(sp.status);
+    Serial.print(" \tHoldDist: ");
+    Serial.print(sp.holdDistance);
+    Serial.print(" \tHoldAlt: ");
+    Serial.println(sp.holdAltitude);
+  #endif
 }
 
 // RADIO
@@ -134,31 +136,26 @@ void Controller::readPotentiometers() {
   cd.kP = analogRead(POTENTIOMETRE_KP);
   cd.kI = analogRead(POTENTIOMETRE_KI);
   cd.kD = analogRead(POTENTIOMETRE_KD);
-  cd.reset = digitalRead(RESET_BUTTON);
-  #ifdef DEBUG
-    Serial.print("AkP: ");
+  #ifdef DEBUG_POTENTIOMETERS
+    Serial.print("kP: ");
     Serial.print(cd.kP);
-    Serial.print("\tAkI: ");
+    Serial.print("\tkI: ");
     Serial.print(cd.kI);
-    Serial.print("\tAkD: ");
-    Serial.print(cd.kD);
-    Serial.print("\tReset: ");
-    Serial.print(cd.reset);
+    Serial.print("\tkD: ");
+    Serial.println(cd.kD);
   #endif
 
-  cd.kP = mapFloat(cd.kP, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KP, MAX_KP);
-  cd.kI = mapFloat(cd.kI, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KI, MAX_KI);
-  cd.kD = mapFloat(cd.kD, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_KD, MAX_KD);
+  cd.kP = mapFloat(cd.kP, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KP, MAX_KP);
+  cd.kI = mapFloat(cd.kI, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KI, MAX_KI);
+  cd.kD = mapFloat(cd.kD, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KD, MAX_KD);
 
-  #ifdef DEBUG
-    Serial.print("\tkP: ");
+  #ifdef DEBUG_PID_VALUES
+    Serial.print("kP: ");
     Serial.print(cd.kP);
     Serial.print("\tkI: ");
     Serial.print(cd.kI);
     Serial.print("\tkD: ");
     Serial.print(cd.kD);
-    Serial.print("\tReset: ");
-    Serial.println(cd.reset);
   #endif
 }
 
@@ -168,15 +165,30 @@ void Controller::sendCalibrationData() {
   calibrationData[2] = cd.kD;
   calibrationData[3] = cd.reset;
   if (radio->write(&calibrationData, sizeCalibrationData)) {
-    #ifdef DEBUG
+    #ifdef DEBUG_RADIO
       Serial.println("Data sent");
     #endif
   }
   else {
-    #ifdef DEBUG
+    #ifdef DEBUG_RADIO
       Serial.println("Failed transmitting calibration");
     #endif
   }
+}
+
+void Controller::readResetButton() {
+  int currentButtonReset = digitalRead(BUTTON_RESET);
+  if (currentButtonReset != lastButtonReset) {
+    lastButtonReset = currentButtonReset;
+    buttonReset++;
+    if (buttonReset % 4 == 0) {
+      cd.reset = !cd.reset;
+    }
+  }
+  #ifdef DEBUG_PID_VALUES
+    Serial.print("\tReset: ");
+    Serial.println(cd.reset);
+  #endif
 }
 
 // CONTROL
@@ -191,12 +203,14 @@ void Controller::readJoystick2() {
 }
 
 void Controller::printJoystickData(struct JoystickInfo *ji) {
-  Serial.print("JOYSTICK ");
-  Serial.print(ji->num);
-  Serial.print(" -> X: ");
-  Serial.print(ji->valX);
-  Serial.print(" Y: ");
-  Serial.println(ji->valY);
+  #ifdef DEBUG_JOYSTICKS
+    Serial.print("JOYSTICK ");
+    Serial.print(ji->num);
+    Serial.print(" -> X: ");
+    Serial.print(ji->valX);
+    Serial.print(" Y: ");
+    Serial.println(ji->valY);
+  #endif
 }
 
 void Controller::readButtons() {
@@ -227,12 +241,14 @@ void Controller::readButtons() {
 }
 
 void Controller::printButtons() {
-  Serial.print("Status: ");
-  Serial.print(sp.status);
-  Serial.print("\tHoldDist: ");
-  Serial.print(sp.holdDistance);
-  Serial.print("\tHoldAlt: ");
-  Serial.println(sp.holdAltitude);
+  #ifdef DEBUG_BUTTONS
+    Serial.print("Status: ");
+    Serial.print(sp.status);
+    Serial.print("\tHoldDist: ");
+    Serial.print(sp.holdDistance);
+    Serial.print("\tHoldAlt: ");
+    Serial.println(sp.holdAltitude);
+  #endif
 }
 
 void Controller::updateLeds() {
@@ -291,12 +307,8 @@ void Controller::getControllerData() {
   readJoystick1();
   readJoystick2();
   readButtons();
-  #ifdef DEBUG_JOYSTICKS
-    printJoystickData(&j1);
-    printJoystickData(&j2);
-  #endif
-  #ifdef DEBUG_BUTTONS
-    printButtons();
-  #endif
+  printJoystickData(&j1);
+  printJoystickData(&j2);
+  printButtons();
   updateLeds();
 }

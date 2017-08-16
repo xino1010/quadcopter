@@ -26,6 +26,7 @@ void loop() {
 
   #ifdef CALIBRATION_MODE
     c->readPotentiometers();
+    c->readResetButton();
     c->sendCalibrationData();
   #endif
 
