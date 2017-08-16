@@ -101,8 +101,6 @@ class Quadcopter {
 		// MOTORS
 		int vFL, vFR, vBL, vBR;
 		Servo motorFL, motorFR, motorBL, motorBR;
-    void connectMotors();
-    void armMotors();
     int getVelocityFL();
     void setVelocityFL(int vFL);
     int getVelocityFR();
@@ -161,6 +159,8 @@ class Quadcopter {
 		// PID's
 
 		// MOTORS
+    void armMotors();
+    void connectMotors();
     void stopMotors();
     void calculateVelocities();
     void updateMotorsVelocities();

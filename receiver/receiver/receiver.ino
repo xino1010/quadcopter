@@ -16,26 +16,25 @@ void setup() {
   quadcopter = new Quadcopter();
   quadcopter->enableLED();
 
+  // Connect Motors
+  quadcopter->connectMotors();
+  delay(50);
+
+  // Send a minimum signal to prepare the motors
+  quadcopter->armMotors();
+  delay(50);
+
 	// Init MPU9250
 	quadcopter->initIMU();
 
   // Calculate offsets in order to get correct angles
   quadcopter->calculateIMUOffsets();
 
-	// Connect Motors
-	//quadcopter->connectMotors();
-	delay(50);
-
-	// Send a minimum signal to prepare the motors
-	//quadcopter->armMotors();
-	delay(50);
-
 	#ifdef DEBUG
 	  Serial.println("Quadcopter initialized");
   #endif
 
   quadcopter->disableLED();
-
 }
 
 void loop() {

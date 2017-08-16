@@ -192,12 +192,10 @@ void Quadcopter::updateMotorsVelocities() {
     Serial.print(" BR: ");
     Serial.println(getVelocityBR());
   #endif
-  /*
   motorFL.writeMicroseconds(getVelocityFL());
 	motorFR.writeMicroseconds(getVelocityFR());
 	motorBL.writeMicroseconds(getVelocityBL());
 	motorBR.writeMicroseconds(getVelocityBR());
-  */
 }
 
 int Quadcopter::getVelocityFL() {
