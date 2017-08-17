@@ -10,15 +10,16 @@
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
-  //#define DEBUG_IMU
+  #define DEBUG_IMU
   #define DEBUG_MOTORS
   //#define DEBUG_RADIO
   //#define DEBUG_SONAR
+  //#define DEBUG_PID
 #endif
 
-#define NORMAL_MODE
+//#define NORMAL_MODE
+#define CALIBRATION_MODE
 
-//#define CALIBRATION_MODE
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
   //#define CALIBRATION_ROLL
@@ -36,8 +37,8 @@
 #define PIN_MOTOR_FR 5
 #define PIN_MOTOR_BL 6
 #define PIN_MOTOR_BR 9
-#define ARM_MOTOR 900
-#define ZERO_VALUE_MOTOR 1000
+#define ARM_MOTOR 800
+#define ZERO_VALUE_MOTOR 900
 #define MIN_VALUE_MOTOR 1100
 #define MAX_VALUE_MOTOR 2000
 #define MIN_VALUE_PID -1000.0
@@ -70,8 +71,8 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define MIN_YAW -45
 #define MAX_YAW 45
 #define MAX_CALIBRATION_ATTEMPTS 5
-#define NUMBER_OF_READINGS_IMU_FOR_HEATING 2500
-#define NUMBER_OF_READINGS_IMU 1000
+#define NUMBER_OF_READINGS_IMU_FOR_HEATING 1000
+#define NUMBER_OF_READINGS_IMU 500
 #define OFFSET_ANGLE 0.5
 
 // LED
@@ -91,7 +92,7 @@ class Quadcopter {
     float getTemperature();
 
 		// PID's
-		double kpPitch = 1, kiPitch = 0, kdPitch = 0;
+		double kpPitch = 0, kiPitch = 0, kdPitch = 0;
 		double kpRoll = 0, kiRoll = 0, kdRoll = 0;
 		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
 		double kpDistance = 0, kiDistance = 0, kdDistance = 0;

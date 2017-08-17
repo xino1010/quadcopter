@@ -46,16 +46,24 @@ Quadcopter::Quadcopter() {
 
 	// RADIO
 	radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
-	throttle = ZERO_VALUE_MOTOR;
-  throttle = MIN_VALUE_MOTOR;
+  
+  #ifdef NORMAL_MODE
+	  throttle = ZERO_VALUE_MOTOR;
+    cm = CONTROL_MODE_OFF;
+  #endif
+  
+  #ifdef CALIBRATION_MODE
+    throttle = 1150;
+    cm = CONTROL_MODE_ACRO;
+  #endif
+  
+  controlModeChange = false;
+  
 	radio->begin();
   radio->setDataRate(RF24_250KBPS);
 	radio->setPALevel(RF24_PA_MAX); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
 	radio->openReadingPipe(1, radioAddress);
 	radio->startListening();
-  //cm = CONTROL_MODE_OFF;
-  cm = CONTROL_MODE_ACRO;
-  controlModeChange = false;
 
 	// IMU
 	currentPitch = 0;
@@ -192,10 +200,11 @@ void Quadcopter::updateMotorsVelocities() {
     Serial.print(" BR: ");
     Serial.println(getVelocityBR());
   #endif
+  
   motorFL.writeMicroseconds(getVelocityFL());
-	motorFR.writeMicroseconds(getVelocityFR());
-	motorBL.writeMicroseconds(getVelocityBL());
-	motorBR.writeMicroseconds(getVelocityBR());
+  motorFR.writeMicroseconds(getVelocityFR());
+  motorBL.writeMicroseconds(getVelocityBL());
+  motorBR.writeMicroseconds(getVelocityBR());
 }
 
 int Quadcopter::getVelocityFL() {
@@ -282,7 +291,9 @@ void Quadcopter::setThrottle(int throttle) {
 void Quadcopter::updateRadioInfo() {
 
 	if (radio->available()) {
+    enableLED();
 	  radio->read(radioData, sizeRadioData);
+    
 		setThrottle(radioData[0]);
 
     // Check if there have sent any abnormal data
@@ -340,6 +351,7 @@ void Quadcopter::updateRadioInfo() {
       controlModeChange = getControlMode() != CONTROL_MODE_ACRO;
       setControlMode(CONTROL_MODE_ACRO);
     }
+    disableLED();
 	}
 }
 
@@ -353,36 +365,47 @@ int Quadcopter::getControlMode() {
 
 void Quadcopter::updatePIDInfo() {
   if (radio->available()) {
+    enableLED();
     radio->read(radioPIDdata, sizeRadioPIDdata);
+    int resetPid = (int) radioPIDdata[3];
+
+    if (resetPid) {
+      setControlMode(CONTROL_MODE_OFF);
+    }
+    else {
+      setControlMode(CONTROL_MODE_ACRO);
+    }
     
     #ifdef CALIBRATION_PITCH
-      pidPitch->setKd(radioPIDdata[0]);
+      pidPitch->setKp(radioPIDdata[0]);
       pidPitch->setKi(radioPIDdata[1]);
       pidPitch->setKd(radioPIDdata[2]);
-      if (((int) radioPIDdata[4]) == HIGH) {
+      if (resetPid == HIGH) {
         pidPitch->reset();
       }
-      #ifdef DEBUG
+      #ifdef DEBUG_PID
         Serial.print("kP: ");
         Serial.print(pidPitch->getKp());
-        Serial.print("kI: ");
+        Serial.print("\tkI: ");
         Serial.print(pidPitch->getKi());
         Serial.print("\tkD: ");
-        Serial.println(pidPitch->getKd());
+        Serial.print(pidPitch->getKd());
+        Serial.print("\tReset: ");
+        Serial.println(resetPid);
       #endif
     #endif
 
-    #ifdef CALIBRATION_PITCH
-      pidRoll->setKd(radioPIDdata[0]);
+    #ifdef CALIBRATION_ROLL
+      pidRoll->setKp(radioPIDdata[0]);
       pidRoll->setKi(radioPIDdata[1]);
       pidRoll->setKd(radioPIDdata[2]);
-      if (((int) radioPIDdata[4]) == HIGH) {
+      if (resetPid == HIGH) {
         pidRoll->reset();
       }
-      #ifdef DEBUG
+      #ifdef DEBUG_PID
         Serial.print("kP: ");
         Serial.print(pidRoll->getKp());
-        Serial.print("kI: ");
+        Serial.print("\tkI: ");
         Serial.print(pidRoll->getKi());
         Serial.print("\tkD: ");
         Serial.println(pidRoll->getKd());
@@ -390,21 +413,23 @@ void Quadcopter::updatePIDInfo() {
     #endif
 
     #ifdef CALIBRATION_YAW
-      pidYaw->setKd(radioPIDdata[0]);
+      pidYaw->setKp(radioPIDdata[0]);
       pidYaw->setKi(radioPIDdata[1]);
       pidYaw->setKd(radioPIDdata[2]);
-      if (((int) radioPIDdata[4]) == HIGH) {
+      if (resetPid == HIGH) {
         pidYaw->reset();
       }
-      #ifdef DEBUG
+      #ifdef DEBUG_PID
         Serial.print("kP: ");
         Serial.print(pidYaw->getKp());
-        Serial.print("kI: ");
+        Serial.print("\tkI: ");
         Serial.print(pidYaw->getKi());
         Serial.print("\tkD: ");
         Serial.println(pidYaw->getKd());
       #endif
     #endif
+    
+    disableLED();
   }
   else {
     #ifdef DEBUG_RADIO
@@ -487,6 +512,7 @@ void Quadcopter::initIMU() {
 void Quadcopter::calculateIMUOffsets() {
   for (int i = 0; i < NUMBER_OF_READINGS_IMU_FOR_HEATING; i++) {
     updateAngles();
+    delay(25);
   }
   delay(500);
   #ifdef DEBUG_IMU
@@ -498,6 +524,7 @@ void Quadcopter::calculateIMUOffsets() {
     avgAngles[0] += getCurrentPitch();
     avgAngles[1] += getCurrentRoll();
     avgAngles[2] += getCurrentYaw();
+    delay(25);
   }
   offsetPitch = 0 - (avgAngles[0] / (float) NUMBER_OF_READINGS_IMU);
   offsetRoll = 0 - (avgAngles[1] / (float) NUMBER_OF_READINGS_IMU);
