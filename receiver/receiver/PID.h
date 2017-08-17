@@ -1,3 +1,6 @@
+#ifndef _PID_H_
+#define _PID_H
+
 class PID {
 	private:
 		double I = 0;
@@ -24,3 +27,5 @@ class PID {
 		void reset();
 
 };
+
+#endif

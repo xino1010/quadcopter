@@ -1,20 +1,26 @@
-#include <Arduino.h>
-
 #include "Quadcopter.h"
 
 Quadcopter *quadcopter;
 
+void fooInterrupt() {
+  quadcopter->dmpDataReady();
+}
+
 void setup() {
   Wire.begin();
+  Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
 
   #ifdef DEBUG
-    Serial.begin(38400);
+    Serial.begin(115200);
     while (!Serial){}
-    delay(1000);
   #endif
+
+  Serial.println("llega");
 
   quadcopter = new Quadcopter();
   quadcopter->enableLED();
+
+  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), fooInterrupt, RISING);
 
   // Connect Motors
   quadcopter->connectMotors();
@@ -27,9 +33,9 @@ void setup() {
 	// Init MPU9250
 	quadcopter->initIMU();
 
-  // Calculate offsets in order to get correct angles
-  quadcopter->calculateIMUOffsets();
-
+  // Calculate offsets
+  quadcopter->calculateOffsets();
+  
 	#ifdef DEBUG
 	  Serial.println("Quadcopter initialized");
   #endif
@@ -38,6 +44,10 @@ void setup() {
 }
 
 void loop() {
+
+  if (!quadcopter->getDmpReady()) {
+    return;
+  }
 
   #ifdef NORMAL_MODE
   	// Read data from radio

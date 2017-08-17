@@ -6,17 +6,22 @@ Quadcopter::Quadcopter() {
   pinMode(LED_PIN , OUTPUT);  //definir pin como salida
 
   // BMP180
-  if (!bmp.begin()) {
-    #ifdef DEBUG_BMP
-      Serial.println("Could not find a valid BMP085 sensor, check wiring!");
-    #endif
-    while (true) {
-      delay(1000);
+  #ifdef BMP180
+    if (!bmp.begin()) {
+      #ifdef DEBUG_BMP
+        Serial.println(F("Could not find a valid BMP180 sensor, check wiring!"));
+      #endif
+      while (true) {
+        #ifdef DEBUG_BMP
+          Serial.println(F("Reset program and connect BMP180 sensor correctly"));
+        #endif
+        delay(1000);
+      }
     }
-  }
-  delay(1000);
-  offsetAltitude = getAltitude();
-  previousAltitudeRead = millis();
+    delay(1000);
+    offsetAltitude = getAltitude();
+    previousAltitudeRead = millis();
+  #endif
 
 	// PID
 	pidPitch = new PID(kpPitch, kiPitch, kdPitch, MIN_PITCH, MAX_PITCH);
@@ -46,19 +51,18 @@ Quadcopter::Quadcopter() {
 
 	// RADIO
 	radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
-  
+
   #ifdef NORMAL_MODE
 	  throttle = ZERO_VALUE_MOTOR;
-    cm = CONTROL_MODE_OFF;
+    cm = CONTROL_MODE_ACRO;
   #endif
-  
+
   #ifdef CALIBRATION_MODE
     throttle = 1150;
     cm = CONTROL_MODE_ACRO;
   #endif
-  
+
   controlModeChange = false;
-  
 	radio->begin();
   radio->setDataRate(RF24_250KBPS);
 	radio->setPALevel(RF24_PA_MAX); // RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
@@ -88,9 +92,9 @@ int Quadcopter::myAbs(int value) {
 float Quadcopter::getAltitude() {
 	float altitude = bmp.readAltitude();
 	#ifdef DEBUG_BMP
-		Serial.print("BMP180 Altitude: ");
+		Serial.print(F("BMP180 Altitude: "));
 		Serial.print(altitude);
-		Serial.println("m");
+		Serial.println(F("m"));
 	#endif
 	return altitude;
 }
@@ -98,9 +102,9 @@ float Quadcopter::getAltitude() {
 float Quadcopter::getTemperature() {
 	float temperature = bmp.readTemperature();;
 	#ifdef DEBUG_BMP
-		Serial.print("BMP180 Temperature: ");
+		Serial.print(F("BMP180 Temperature: "));
 		Serial.print(temperature);
-		Serial.println("ºC");
+		Serial.println(F("ºC"));
 	#endif
 	return temperature;
 }
@@ -113,7 +117,7 @@ void Quadcopter::connectMotors() {
 	motorBR.attach(PIN_MOTOR_BR);
 
   #ifdef DEBUG_MOTORS
-    Serial.println("Motors attached");
+    Serial.println(F("Motors attached"));
   #endif
 }
 
@@ -124,7 +128,7 @@ void Quadcopter::armMotors() {
 	motorBR.writeMicroseconds(ARM_MOTOR);
 
   #ifdef DEBUG_MOTORS
-    Serial.println("Motors armed");
+    Serial.println(F("Motors armed"));
   #endif
 }
 
@@ -189,18 +193,18 @@ void Quadcopter::calculateVelocities() {
 
 void Quadcopter::updateMotorsVelocities() {
   #ifdef DEBUG_MOTORS
-    Serial.print("CM: ");
+    Serial.print(F("CM: "));
     Serial.print(cm);
-    Serial.print(" FL: ");
+    Serial.print(F(" FL: "));
     Serial.print(getVelocityFL());
-    Serial.print(" FR: ");
+    Serial.print(F(" FR: "));
     Serial.print(getVelocityFR());
-    Serial.print(" BL: ");
+    Serial.print(F(" BL: "));
     Serial.print(getVelocityBL());
-    Serial.print(" BR: ");
+    Serial.print(F(" BR: "));
     Serial.println(getVelocityBR());
   #endif
-  
+
   motorFL.writeMicroseconds(getVelocityFL());
   motorFR.writeMicroseconds(getVelocityFR());
   motorBL.writeMicroseconds(getVelocityBL());
@@ -293,7 +297,7 @@ void Quadcopter::updateRadioInfo() {
 	if (radio->available()) {
     enableLED();
 	  radio->read(radioData, sizeRadioData);
-    
+
 		setThrottle(radioData[0]);
 
     // Check if there have sent any abnormal data
@@ -375,7 +379,7 @@ void Quadcopter::updatePIDInfo() {
     else {
       setControlMode(CONTROL_MODE_ACRO);
     }
-    
+
     #ifdef CALIBRATION_PITCH
       pidPitch->setKp(radioPIDdata[0]);
       pidPitch->setKi(radioPIDdata[1]);
@@ -384,13 +388,13 @@ void Quadcopter::updatePIDInfo() {
         pidPitch->reset();
       }
       #ifdef DEBUG_PID
-        Serial.print("kP: ");
+        Serial.print(F("kP: "));
         Serial.print(pidPitch->getKp());
-        Serial.print("\tkI: ");
+        Serial.print(F("\tkI: "));
         Serial.print(pidPitch->getKi());
-        Serial.print("\tkD: ");
+        Serial.print(F("\tkD: "));
         Serial.print(pidPitch->getKd());
-        Serial.print("\tReset: ");
+        Serial.print(F("\tReset: "));
         Serial.println(resetPid);
       #endif
     #endif
@@ -403,11 +407,11 @@ void Quadcopter::updatePIDInfo() {
         pidRoll->reset();
       }
       #ifdef DEBUG_PID
-        Serial.print("kP: ");
+        Serial.print(F("kP: "));
         Serial.print(pidRoll->getKp());
-        Serial.print("\tkI: ");
+        Serial.print(F("\tkI: "));
         Serial.print(pidRoll->getKi());
-        Serial.print("\tkD: ");
+        Serial.print(F("\tkD: "));
         Serial.println(pidRoll->getKd());
       #endif
     #endif
@@ -420,26 +424,26 @@ void Quadcopter::updatePIDInfo() {
         pidYaw->reset();
       }
       #ifdef DEBUG_PID
-        Serial.print("kP: ");
+        Serial.print(F("kP: "));
         Serial.print(pidYaw->getKp());
-        Serial.print("\tkI: ");
+        Serial.print(F("\tkI: "));
         Serial.print(pidYaw->getKi());
-        Serial.print("\tkD: ");
+        Serial.print(F("\tkD: "));
         Serial.println(pidYaw->getKd());
       #endif
     #endif
-    
+
     disableLED();
   }
   else {
     #ifdef DEBUG_RADIO
-      Serial.println("There is no radio pid data");
+      Serial.println(F("There is no radio pid data"));
     #endif
   }
 }
 
 // IMU
-int Quadcopter::getCurrentPitch() {
+float Quadcopter::getCurrentPitch() {
 	return currentPitch;
 }
 
@@ -447,7 +451,7 @@ void Quadcopter::setCurrentPitch(float currentPitch) {
 	this->currentPitch = currentPitch;
 }
 
-int Quadcopter::getCurrentRoll() {
+float Quadcopter::getCurrentRoll() {
 	return currentRoll;
 }
 
@@ -455,7 +459,7 @@ void Quadcopter::setCurrentRoll(float currentRoll) {
 	this->currentRoll = currentRoll;
 }
 
-int Quadcopter::getCurrentYaw() {
+float Quadcopter::getCurrentYaw() {
 	return currentYaw;
 }
 
@@ -463,217 +467,153 @@ void Quadcopter::setCurrentYaw(float currentYaw) {
 	this->currentYaw = currentYaw;
 }
 
-void Quadcopter::initIMU() {
-  // Read the WHO_AM_I register, this is a good test of communication
-  byte c = myIMU.readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
-  #ifdef DEBUG_IMU
-    Serial.print("MPU9250 "); Serial.print("I AM "); Serial.print(c, HEX);
-    // VIEJO
-    //Serial.print(" I should be "); Serial.println(0x71, HEX);
-    // NUEVO
-    Serial.print(" I should be "); Serial.println(0x73, HEX);
-  #endif
-
-  // WHO_AM_I should always be 0x68
-  // VIEJO
-  //if (c == 0x71) {
-  // NUEVO
-  if (c == 0x73) {
-    #ifdef DEBUG_IMU
-      Serial.println("MPU9250 is online...");
-    #endif
-    myIMU.initMPU9250();
-    #ifdef DEBUG_IMU
-      Serial.println("MPU9250 initialized for active data mode....");
-    #endif
-
-    // Read the WHO_AM_I register of the magnetometer, this is a good test of
-    // communication
-    byte d = myIMU.readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);
-    #ifdef DEBUG_IMU
-      Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX);
-      Serial.print(" I should be "); Serial.println(0x48, HEX);
-    #endif
-
-    // Get magnetometer calibration from AK8963 ROM
-    myIMU.initAK8963(myIMU.magCalibration);
-    #ifdef DEBUG_IMU
-      // Initialize device for active mode read of magnetometer
-      Serial.println("AK8963 initialized for active data mode....");
-    #endif
-  }
-  else {
-    Serial.print("Could not connect to MPU9250: 0x");
-    Serial.println(c, HEX);
-    while(1) ; // Loop forever if communication doesn't happen
-  }
-}
-
-void Quadcopter::calculateIMUOffsets() {
-  for (int i = 0; i < NUMBER_OF_READINGS_IMU_FOR_HEATING; i++) {
+void Quadcopter::calculateOffsets() {
+  for (int i = 0; i < NORMALIZE_SAMPLES; i++) {
     updateAngles();
-    delay(25);
   }
-  delay(500);
-  #ifdef DEBUG_IMU
-    Serial.println("Calculating offsets...");
-  #endif
-  float avgAngles[3] = { 0.0, 0.0, 0.0 };
-  for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
+  float offsets[3] = {0, 0, 0};
+  for (int i = 0; i < OFFSET_SAMPLES; i++) {
     updateAngles();
-    avgAngles[0] += getCurrentPitch();
-    avgAngles[1] += getCurrentRoll();
-    avgAngles[2] += getCurrentYaw();
-    delay(25);
+    offsets[0] += getCurrentPitch();
+    offsets[1] += getCurrentRoll();
+    offsets[2] += getCurrentYaw();
   }
-  offsetPitch = 0 - (avgAngles[0] / (float) NUMBER_OF_READINGS_IMU);
-  offsetRoll = 0 - (avgAngles[1] / (float) NUMBER_OF_READINGS_IMU);
-  offsetYaw = 0 - (avgAngles[2] / (float) NUMBER_OF_READINGS_IMU);
+  offsetPitch = offsets[0] / OFFSET_SAMPLES;
+  offsetRoll = offsets[1] / OFFSET_SAMPLES;
+  offsetYaw = offsets[2] / OFFSET_SAMPLES;
   #ifdef DEBUG_IMU
-    Serial.print("#Offsets...");
-    Serial.print("\tPitch: ");
+    Serial.print(F("Offset pitch: "));
     Serial.print(offsetPitch);
-    Serial.print("\tRoll: ");
+    Serial.print(F("\tOffset roll: "));
     Serial.print(offsetRoll);
-    Serial.print("\tYaw: ");
+    Serial.print(F("\tOffset yaw: "));
     Serial.println(offsetYaw);
   #endif
 }
 
-bool Quadcopter::isCalibrated() {
-  for (int i = 0; i < NUMBER_OF_READINGS_IMU_FOR_HEATING; i++) {
-    updateAngles();
-    delay(20);
-  }
-  float avgAngles[2] = { 0.0, 0.0 };
-  for (int i = 0; i < NUMBER_OF_READINGS_IMU; i++) {
-    updateAngles();
-    avgAngles[0] += getCurrentPitch();
-    avgAngles[1] += getCurrentRoll();
-    delay(20);
-  }
-  avgAngles[0] /= NUMBER_OF_READINGS_IMU;
-  avgAngles[1] /= NUMBER_OF_READINGS_IMU;
+void Quadcopter::initIMU() {
+  // initialize device
   #ifdef DEBUG_IMU
-    Serial.print("#Checking calibration...");
-    Serial.print("\tPitch: ");
-    Serial.print(avgAngles[0]);
-    Serial.print("\tRoll: ");
-    Serial.println(avgAngles[1]);
+    Serial.println(F("Initializing I2C devices..."));
   #endif
-  return (-OFFSET_ANGLE <= avgAngles[0] && avgAngles[0] < OFFSET_ANGLE) && (-OFFSET_ANGLE <= avgAngles[1] && avgAngles[1] < OFFSET_ANGLE);
-}
+  mpu.initialize();
+  pinMode(INTERRUPT_PIN, INPUT);
 
-void Quadcopter::calibrateIMU() {
-  int numCalibration = 0;
-  bool calibrated = false;
-  do {
-    // Calibrate gyro and accelerometers, load biases in bias registers
-    myIMU.calibrateMPU9250(myIMU.gyroBias, myIMU.accelBias);
-    calibrated = isCalibrated();
-    #ifdef DEBUG_IMU
-      Serial.print("#Calibration: ");
-      Serial.print(numCalibration + 1);
-      Serial.print("\tCalibrated: ");
-      Serial.println(calibrated);
-    #endif
-    numCalibration++;
-    delay(5000);
-  } while (!calibrated && numCalibration <= MAX_CALIBRATION_ATTEMPTS);
+  #ifdef DEBUG_IMU
+  // verify connection
+    Serial.println(F("Testing device connections..."));
+    Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+    // load and configure the DMP
+    Serial.println(F("Initializing DMP..."));
+  #endif
+  devStatus = mpu.dmpInitialize();
+
+  // supply your own gyro offsets here, scaled for min sensitivity
+  mpu.setXGyroOffset(27);
+  mpu.setYGyroOffset(-34);
+  mpu.setZGyroOffset(13);
+  mpu.setXAccelOffset(-3074);
+  mpu.setYAccelOffset(-1648);
+  mpu.setZAccelOffset(1450);
+
+  // make sure it worked (returns 0 if so)
+  if (devStatus == 0) {
+      // turn on the DMP, now that it's ready
+      #ifdef DEBUG_IMU
+        Serial.println(F("Enabling DMP..."));
+      #endif
+      mpu.setDMPEnabled(true);
+
+      // enable Arduino interrupt detection
+      #ifdef DEBUG_IMU
+        Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+      #endif
+      mpuIntStatus = mpu.getIntStatus();
+
+      // set our DMP Ready flag so the main loop() function knows it's okay to use it
+      #ifdef DEBUG_IMU
+        Serial.println(F("DMP ready! Waiting for first interrupt..."));
+      #endif
+      dmpReady = true;
+
+      // get expected DMP packet size for later comparison
+      packetSize = mpu.dmpGetFIFOPacketSize();
+  }
+  else {
+      // ERROR!
+      // 1 = initial memory load failed
+      // 2 = DMP configuration updates failed
+      // (if it's going to break, usually the code will be 1)
+      #ifdef DEBUG_IMU
+        Serial.print(F("DMP Initialization failed (code "));
+        Serial.print(devStatus);
+        Serial.println(F(")"));
+      #endif
+  }
 }
 
 void Quadcopter::updateAngles() {
-  // If intPin goes high, all data registers have new data
-  // On interrupt, check if data ready interrupt
-  if (myIMU.readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01) {
-    myIMU.readAccelData(myIMU.accelCount);  // Read the x/y/z adc values
-    myIMU.getAres();
 
-    // Now we'll calculate the accleration value into actual g's
-    // This depends on scale being set
-    myIMU.ax = (float) myIMU.accelCount[0] * myIMU.aRes; // - accelBias[0];
-    myIMU.ay = (float) myIMU.accelCount[1] * myIMU.aRes; // - accelBias[1];
-    myIMU.az = (float) myIMU.accelCount[2] * myIMU.aRes; // - accelBias[2];
+  // wait for MPU interrupt or extra packet(s) available
+  while (!mpuInterrupt && fifoCount < packetSize) { }
 
-    myIMU.readGyroData(myIMU.gyroCount);  // Read the x/y/z adc values
-    myIMU.getGres();
+  // reset interrupt flag and get INT_STATUS byte
+  mpuInterrupt = false;
+  mpuIntStatus = mpu.getIntStatus();
 
-    // Calculate the gyro value into actual degrees per second
-    // This depends on scale being set
-    myIMU.gx = (float) myIMU.gyroCount[0] * myIMU.gRes;
-    myIMU.gy = (float) myIMU.gyroCount[1] * myIMU.gRes;
-    myIMU.gz = (float) myIMU.gyroCount[2] * myIMU.gRes;
+  // get current FIFO count
+  fifoCount = mpu.getFIFOCount();
 
-    myIMU.readMagData(myIMU.magCount);  // Read the x/y/z adc values
-    myIMU.getMres();
-    // User environmental x-axis correction in milliGauss, should be
-    // automatically calculated
-    myIMU.magbias[0] = +470.;
-    // User environmental x-axis correction in milliGauss TODO axis??
-    myIMU.magbias[1] = +120.;
-    // User environmental x-axis correction in milliGauss
-    myIMU.magbias[2] = +125.;
-
-    // Calculate the magnetometer values in milliGauss
-    // Include factory calibration per data sheet and user environmental
-    // corrections
-    // Get actual magnetometer value, this depends on scale being set
-    myIMU.mx = (float) myIMU.magCount[0] * myIMU.mRes * myIMU.magCalibration[0] - myIMU.magbias[0];
-    myIMU.my = (float) myIMU.magCount[1] * myIMU.mRes * myIMU.magCalibration[1] - myIMU.magbias[1];
-    myIMU.mz = (float) myIMU.magCount[2] * myIMU.mRes * myIMU.magCalibration[2] - myIMU.magbias[2];
+  // check for overflow (this should never happen unless our code is too inefficient)
+  if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+      // reset so we can continue cleanly
+      mpu.resetFIFO();
+      #ifdef DEBUG_IMU
+        Serial.println(F("FIFO overflow!"));
+      #endif
   }
+  // otherwise, check for DMP data ready interrupt (this should happen frequently)
+  else if (mpuIntStatus & 0x02) {
+      // wait for correct available data length, should be a VERY short wait
+      while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
-  // Must be called before updating quaternions!
-  myIMU.updateTime();
+      // read a packet from FIFO
+      mpu.getFIFOBytes(fifoBuffer, packetSize);
 
-  //MadgwickQuaternionUpdate(myIMU.ax, myIMU.ay, myIMU.az, myIMU.gx * PI/180.0f, myIMU.gy * PI/180.0f, myIMU.gz * PI/180.0f,  myIMU.my,  myIMU.mx, myIMU.mz, myIMU.deltat);
-  MahonyQuaternionUpdate(myIMU.ax, myIMU.ay, myIMU.az, myIMU.gx * DEG_TO_RAD, myIMU.gy * DEG_TO_RAD, myIMU.gz * DEG_TO_RAD, myIMU.my, myIMU.mx, myIMU.mz, myIMU.deltat);
+      // track FIFO count here in case there is > 1 packet available
+      // (this lets us immediately read more without waiting for an interrupt)
+      fifoCount -= packetSize;
 
-  myIMU.tempCount = myIMU.readTempData();  // Read the adc values
-  // Temperature in degrees Centigrade
-  myIMU.temperature = ((float) myIMU.tempCount) / 333.87 + 21.0;
-  setTemperatureIMU(myIMU.temperature);
+      // display Euler angles in degrees
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-  myIMU.yaw   = atan2(2.0f * (*(getQ()+1) * *(getQ()+2) + *getQ() *
-                *(getQ()+3)), *getQ() * *getQ() + *(getQ()+1) * *(getQ()+1)
-                - *(getQ()+2) * *(getQ()+2) - *(getQ()+3) * *(getQ()+3));
-  myIMU.pitch = -asin(2.0f * (*(getQ()+1) * *(getQ()+3) - *getQ() *
-                *(getQ()+2)));
-  myIMU.roll  = atan2(2.0f * (*getQ() * *(getQ()+1) + *(getQ()+2) *
-                *(getQ()+3)), *getQ() * *getQ() - *(getQ()+1) * *(getQ()+1)
-                - *(getQ()+2) * *(getQ()+2) + *(getQ()+3) * *(getQ()+3));
-  myIMU.pitch *= RAD_TO_DEG;
-  myIMU.yaw   *= RAD_TO_DEG;
-  // Declination of SparkFun Electronics (40°05'26.6"N 105°11'05.9"W) is
-  // 	8° 30' E  ± 0° 21' (or 8.5°) on 2016-07-19
-  // - http://www.ngdc.noaa.gov/geomag-web/#declination
-  myIMU.yaw   -= 0.18333;
-  myIMU.roll  *= RAD_TO_DEG;
+      float pitch = -1 * ypr[1] * (float) (180.0/M_PI);
+      float roll = ypr[2] * (float) (180.0/M_PI);
+      float yaw = ypr[0] * (float) (180.0/M_PI);
 
-  myIMU.pitch += offsetPitch;
-  myIMU.roll += offsetRoll;
-  myIMU.yaw += offsetYaw;
+      setCurrentPitch(pitch - offsetPitch);
+      setCurrentRoll(roll - offsetRoll);
+      setCurrentYaw(yaw);
 
-  setCurrentPitch(myIMU.pitch);
-  setCurrentRoll(myIMU.roll);
-  setCurrentYaw(myIMU.yaw);
-
-  #ifdef DEBUG_IMU
-    Serial.print("Pitch, Roll, Yaw: ");
-    Serial.print(myIMU.pitch, 2);
-    Serial.print(", ");
-    Serial.print(myIMU.roll, 2);
-    Serial.print(", ");
-    Serial.println(myIMU.yaw, 2);
-  #endif
+      #ifdef DEBUG_IMU
+        Serial.print("Pitch, Roll, Yaw: ");
+        Serial.print(getCurrentPitch());
+        Serial.print(", ");
+        Serial.print(getCurrentRoll());
+        Serial.print(", ");
+        Serial.println(getCurrentYaw());
+      #endif
+  }
 }
 
-float Quadcopter::getTemperatureIMU() {
-  return temperatureIMU;
+bool Quadcopter::getDmpReady() {
+  return dmpReady;
 }
 
-void Quadcopter::setTemperatureIMU(float temperatureIMU) {
-  this->temperatureIMU = temperatureIMU;
+void Quadcopter::dmpDataReady() {
+  mpuInterrupt = true;
 }
 
 // HC-SR04
@@ -699,9 +639,9 @@ int Quadcopter::getDistance() {
 	int distance = duration * 10 / 292 / 2;
 
 	#ifdef DEBUG_SONAR
-		Serial.print("HC-SR04 Floor distance: ");
+		Serial.print(F("HC-SR04 Floor distance: "));
 		Serial.print(distance);
-		Serial.println("cm");
+		Serial.println(F("cm"));
 	#endif
 
 	return distance;

@@ -1,11 +1,14 @@
-#include <Wire.h>
+#ifndef _QUADCOPTER_H_
+#define _QUADCOPTER_H_
+
+#include <Arduino.h>
 #include <Adafruit_BMP085.h>
 #include <Servo.h>
 #include <nRF24L01.h>
 #include "RF24.h"
 #include "PID.h"
-#include "quaternionFilters.h"
-#include "MPU9250.h"
+#include "MPU6050_6Axis_MotionApps20.h"
+#include "Wire.h"
 
 #define DEBUG
 #ifdef DEBUG
@@ -17,8 +20,8 @@
   //#define DEBUG_PID
 #endif
 
-//#define NORMAL_MODE
-#define CALIBRATION_MODE
+#define NORMAL_MODE
+//#define CALIBRATION_MODE
 
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
@@ -27,6 +30,7 @@
 #endif
 
 // BMP180
+//#define BMP180
 #define MIN_ALTITUDE 300
 #define MAX_ALTITUDE 5000
 #define TIME_READ_ALTITUDE 3000
@@ -70,10 +74,10 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define MAX_CHANGE_YAW 20
 #define MIN_YAW -45
 #define MAX_YAW 45
-#define MAX_CALIBRATION_ATTEMPTS 5
-#define NUMBER_OF_READINGS_IMU_FOR_HEATING 1000
-#define NUMBER_OF_READINGS_IMU 500
 #define OFFSET_ANGLE 0.5
+#define INTERRUPT_PIN 2
+#define NORMALIZE_SAMPLES 1250
+#define OFFSET_SAMPLES 500
 
 // LED
 #define LED_PIN 7
@@ -93,7 +97,7 @@ class Quadcopter {
 
 		// PID's
 		double kpPitch = 0, kiPitch = 0, kdPitch = 0;
-		double kpRoll = 0, kiRoll = 0, kdRoll = 0;
+		double kpRoll = 1, kiRoll = 0, kdRoll = 0;
 		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
 		double kpDistance = 0, kiDistance = 0, kdDistance = 0;
 		double kpAltitude = 0, kiAltitude = 0, kdAltitude = 0;
@@ -120,7 +124,6 @@ class Quadcopter {
     const int sizeRadioData = sizeof(radioData);
     float radioPIDdata[4];
     const int sizeRadioPIDdata = sizeof(radioPIDdata);
-
     int cm;
     bool controlModeChange;
     int getDesiredPitch();
@@ -134,20 +137,33 @@ class Quadcopter {
     void setControlMode(int cm);
 
 		// IMU
-    MPU9250 myIMU;
-		float currentPitch, currentRoll, currentYaw, temperatureIMU;
+    MPU6050 mpu;
+    // MPU control/status vars
+    bool dmpReady = false;  // set true if DMP init was successful
+    uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+    uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+    uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+    uint16_t fifoCount;     // count of all bytes currently in FIFO
+    uint8_t fifoBuffer[64]; // FIFO storage buffer
+
+    // orientation/motion vars
+    Quaternion q;           // [w, x, y, z]         quaternion container
+    VectorInt16 aa;         // [x, y, z]            accel sensor measurements
+    VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
+    VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
+    VectorFloat gravity;    // [x, y, z]            gravity vector
+    float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+
+    float currentPitch, currentRoll, currentYaw, temperatureIMU;
     float offsetPitch, offsetRoll, offsetYaw;
-    int getCurrentPitch();
+    float getCurrentPitch();
     void setCurrentPitch(float currentPitch);
-    int getCurrentRoll();
+    float getCurrentRoll();
     void setCurrentRoll(float currentRoll);
-    int getCurrentYaw();
+    float getCurrentYaw();
     void setCurrentYaw(float currentYaw);
-    void getReadingsIMU(float *avgAngles);
-    float getTemperatureIMU();
-    void setTemperatureIMU(float temperatureIMU);
-    bool isCalibrated();
-    void calibrateIMU();
+
+    volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
 
     // HC-SR04
     int getDistance();
@@ -172,9 +188,11 @@ class Quadcopter {
     int getControlMode();
 
 		// IMU
+    void calculateOffsets();
     void initIMU();
     void updateAngles();
-    void calculateIMUOffsets();
+    bool getDmpReady();
+    void dmpDataReady();
 
     // HC-SR04
 
@@ -183,3 +201,5 @@ class Quadcopter {
     void disableLED();
 
 };
+
+#endif
