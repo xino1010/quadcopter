@@ -3,17 +3,21 @@
 #include <nRF24L01.h>
 #include "RF24.h"
 
-#define DEBUG
-#ifdef DEBUG
-  //#define DEBUG_JOYSTICKS
-  //#define DEBUG_BUTTONS
-  //#define DEBUG_RADIO
-  //#define DEBUG_POTENTIOMETERS
-  #define DEBUG_PID_VALUES
-#endif
-
 //#define NORMAL_MODE
 #define CALIBRATION_MODE
+
+#define DEBUG
+#ifdef DEBUG
+  #ifdef CALIBRATION_MODE
+    #define DEBUG_JOYSTICKS
+    //#define DEBUG_BUTTONS
+  #endif
+  //#define DEBUG_RADIO
+  #ifdef CALIBRATION_MODE
+    //#define DEBUG_POTENTIOMETERS
+    #define DEBUG_PID_VALUES
+  #endif
+#endif
 
 // TRANSMITTER
 #define MIN_ANALOG_VALUE 0
@@ -42,13 +46,12 @@
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
 #define POTENTIOMETRE_KD A3
-#define RESET_BUTTON 2
 #define MIN_KP 0.0
-#define MAX_KP 2.0
+#define MAX_KP 1.5
 #define MIN_KI 0.0
 #define MAX_KI 1.0
 #define MIN_KD 0.0
-#define MAX_KD 100.0
+#define MAX_KD 10.0
 
 // CONTROL
 #define LED_STATUS 2

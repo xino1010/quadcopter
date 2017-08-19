@@ -31,6 +31,9 @@ Quadcopter::Quadcopter() {
   pidDistance->setDesiredPoint(DESIRED_DISTANCE);
   pidAltitude = new PID(kpAltitude, kiAltitude, kdAltitude, MIN_ALTITUDE, MAX_ALTITUDE);
   pidAltitude->setDesiredPoint(DESIRED_ALTITUDE);
+  lastPitch = 0;
+  lastRoll = 0;
+  lastYaw = 0;
   desiredPitch = 0;
   lastDesiredPitch = 0;
   pidPitch->setDesiredPoint(desiredPitch);
@@ -156,20 +159,20 @@ void Quadcopter::calculateVelocities() {
   int tmpVBR = 0;
 
   if (getControlMode() == CONTROL_MODE_ACRO) {
-    tmpVFL = getThrottle() - resultRoll + resultPitch + resultYaw;
-  	tmpVFR = getThrottle() + resultRoll + resultPitch - resultYaw;
-  	tmpVBL = getThrottle() - resultRoll - resultPitch - resultYaw;
-  	tmpVBR = getThrottle() + resultRoll - resultPitch + resultYaw;
+    tmpVFL = getThrottle() - resultRoll - resultPitch + resultYaw;
+  	tmpVFR = getThrottle() + resultRoll - resultPitch - resultYaw;
+  	tmpVBL = getThrottle() - resultRoll + resultPitch - resultYaw;
+  	tmpVBR = getThrottle() + resultRoll + resultPitch + resultYaw;
   }
   else if (getControlMode() == CONTROL_MODE_HOLD_DISTANCE) {
     int dist = getDistance();
     pidDistance->setCurrentPoint(dist);
     double resultDistance = pidDistance->calculate();
     resultDistance = map(resultDistance, MIN_DISTANCE, MAX_DISTANCE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL = MIN_VALUE_MOTOR - resultDistance - resultRoll + resultPitch + resultYaw;
-  	tmpVFR = MIN_VALUE_MOTOR - resultDistance + resultRoll + resultPitch - resultYaw;
-  	tmpVBL = MIN_VALUE_MOTOR - resultDistance - resultRoll - resultPitch - resultYaw;
-  	tmpVBR = MIN_VALUE_MOTOR - resultDistance + resultRoll - resultPitch + resultYaw;
+    tmpVFL = MIN_VALUE_MOTOR - resultDistance - resultRoll - resultPitch + resultYaw;
+  	tmpVFR = MIN_VALUE_MOTOR - resultDistance + resultRoll - resultPitch - resultYaw;
+  	tmpVBL = MIN_VALUE_MOTOR - resultDistance - resultRoll + resultPitch - resultYaw;
+  	tmpVBR = MIN_VALUE_MOTOR - resultDistance + resultRoll + resultPitch + resultYaw;
   }
   else if (getControlMode() == CONTROL_MODE_HOLD_ALTITUDE) {
     int alt = getAltitude();
@@ -177,10 +180,10 @@ void Quadcopter::calculateVelocities() {
     pidAltitude->setCurrentPoint(currentPointAltitude);
     double resultAltitude = pidAltitude->calculate();
     resultAltitude = map(resultAltitude, MIN_ALTITUDE, MAX_ALTITUDE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL = MIN_VALUE_MOTOR - resultAltitude - resultRoll + resultPitch + resultYaw;
-  	tmpVFR = MIN_VALUE_MOTOR - resultAltitude + resultRoll + resultPitch - resultYaw;
-  	tmpVBL = MIN_VALUE_MOTOR - resultAltitude - resultRoll - resultPitch - resultYaw;
-  	tmpVBR = MIN_VALUE_MOTOR - resultAltitude + resultRoll - resultPitch + resultYaw;
+    tmpVFL = MIN_VALUE_MOTOR - resultAltitude - resultRoll - resultPitch + resultYaw;
+  	tmpVFR = MIN_VALUE_MOTOR - resultAltitude + resultRoll - resultPitch - resultYaw;
+  	tmpVBL = MIN_VALUE_MOTOR - resultAltitude - resultRoll + resultPitch - resultYaw;
+  	tmpVBR = MIN_VALUE_MOTOR - resultAltitude + resultRoll + resultPitch + resultYaw;
   }
   controlModeChange = false;
 
@@ -509,12 +512,20 @@ void Quadcopter::initIMU() {
   devStatus = mpu.dmpInitialize();
 
   // supply your own gyro offsets here, scaled for min sensitivity
+  /*
   mpu.setXGyroOffset(27);
   mpu.setYGyroOffset(-34);
   mpu.setZGyroOffset(13);
   mpu.setXAccelOffset(-3074);
   mpu.setYAccelOffset(-1648);
   mpu.setZAccelOffset(1450);
+  */
+  mpu.setXGyroOffset(3);
+  mpu.setYGyroOffset(1);
+  mpu.setZGyroOffset(1);
+  //mpu.setXAccelOffset(14);
+  //mpu.setYAccelOffset(10);
+  mpu.setZAccelOffset(16386);
 
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
@@ -589,13 +600,56 @@ void Quadcopter::updateAngles() {
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-      float pitch = -1 * ypr[1] * (float) (180.0/M_PI);
+      float pitch = ypr[1] * (float) (180.0/M_PI);
       float roll = ypr[2] * (float) (180.0/M_PI);
       float yaw = ypr[0] * (float) (180.0/M_PI);
+      if (yaw < 0) {
+        yaw += 360.0;
+      }
 
-      setCurrentPitch(pitch - offsetPitch);
-      setCurrentRoll(roll - offsetRoll);
+      float currentPitch = pitch - offsetPitch;
+      float currentRoll = roll - offsetRoll;
+      float currentYaw = yaw;
+
+      if (myAbs(currentPitch - lastPitch) > ALLOWED_VARIATION_PITCH) {
+        #ifdef DEBUG_IMU
+          Serial.print("Abnormal Pitch angle. Last: ");
+          Serial.print(lastPitch);
+          Serial.print("\tCurrent: ");
+          Serial.println(currentPitch); 
+        #endif
+        currentPitch = lastPitch;
+      }
+      if (myAbs(currentRoll - lastRoll) > ALLOWED_VARIATION_ROLL) {
+        #ifdef DEBUG_IMU
+          Serial.print("Abnormal Roll angle. Last: ");
+          Serial.print(lastRoll);
+          Serial.print("\tCurrent: ");
+          Serial.println(currentRoll); 
+        #endif
+        currentRoll = lastRoll;
+      }
+      if (myAbs(currentYaw - lastYaw) > ALLOWED_VARIATION_YAW) {
+        /*
+        #ifdef DEBUG_IMU
+          Serial.print("Abnormal Yaw angle. Last: ");
+          Serial.print(lastYaw);
+          Serial.print("\tCurrent: ");
+          Serial.println(currentYaw); 
+        #endif
+        */
+        currentYaw = lastYaw;
+      }
+
+      lastPitch = currentPitch;
+      lastRoll = currentRoll;
+      lastYaw = currentYaw;
+
+      setCurrentPitch(currentPitch);
+      setCurrentRoll(currentRoll);
       setCurrentYaw(yaw);
+
+      mpu.resetFIFO();
 
       #ifdef DEBUG_IMU
         Serial.print("Pitch, Roll, Yaw: ");

@@ -11,11 +11,9 @@ void setup() {
   Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
 
   #ifdef DEBUG
-    Serial.begin(115200);
+    Serial.begin(38400);
     while (!Serial){}
   #endif
-
-  Serial.println("llega");
 
   quadcopter = new Quadcopter();
   quadcopter->enableLED();
@@ -35,7 +33,23 @@ void setup() {
 
   // Calculate offsets
   quadcopter->calculateOffsets();
-  
+
+  int i = 9;
+  #ifdef DEBUG
+    Serial.println("Countdown: ");
+  #endif
+  while (i >= 0) {
+    delay(500);
+    quadcopter->disableLED();
+    #ifdef DEBUG
+      Serial.print(i);
+      Serial.println("...");
+    #endif
+    delay(500);
+    quadcopter->enableLED();
+    i--;
+  }
+
 	#ifdef DEBUG
 	  Serial.println("Quadcopter initialized");
   #endif
@@ -73,4 +87,5 @@ void loop() {
 
   // Send velocities to motors
   quadcopter->updateMotorsVelocities();
+
 }

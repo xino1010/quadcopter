@@ -20,8 +20,8 @@
   //#define DEBUG_PID
 #endif
 
-#define NORMAL_MODE
-//#define CALIBRATION_MODE
+//#define NORMAL_MODE
+#define CALIBRATION_MODE
 
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
@@ -31,7 +31,7 @@
 
 // BMP180
 //#define BMP180
-#define MIN_ALTITUDE 300
+#define MIN_ALTITUDE 200
 #define MAX_ALTITUDE 5000
 #define TIME_READ_ALTITUDE 3000
 #define DESIRED_ALTITUDE 3000
@@ -58,7 +58,7 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define CONTROL_MODE_HOLD_ALTITUDE 103
 
 // HC-SR04
-#define HCSR04_ECHO_PIN 2
+#define HCSR04_ECHO_PIN A3
 #define HCSR04_TRIGGER_PIN 4
 #define MIN_DISTANCE 0
 #define MAX_DISTANCE MIN_ALTITUDE
@@ -74,10 +74,12 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define MAX_CHANGE_YAW 20
 #define MIN_YAW -45
 #define MAX_YAW 45
-#define OFFSET_ANGLE 0.5
+#define ALLOWED_VARIATION_PITCH 4.5
+#define ALLOWED_VARIATION_ROLL 2.5
+#define ALLOWED_VARIATION_YAW 10
 #define INTERRUPT_PIN 2
-#define NORMALIZE_SAMPLES 1250
-#define OFFSET_SAMPLES 500
+#define NORMALIZE_SAMPLES 1750
+#define OFFSET_SAMPLES 750
 
 // LED
 #define LED_PIN 7
@@ -97,7 +99,7 @@ class Quadcopter {
 
 		// PID's
 		double kpPitch = 0, kiPitch = 0, kdPitch = 0;
-		double kpRoll = 1, kiRoll = 0, kdRoll = 0;
+		double kpRoll = 0, kiRoll = 0, kdRoll = 0;
 		double kpYaw = 0, kiYaw = 0, kdYaw = 0;
 		double kpDistance = 0, kiDistance = 0, kdDistance = 0;
 		double kpAltitude = 0, kiAltitude = 0, kdAltitude = 0;
@@ -119,6 +121,7 @@ class Quadcopter {
 		int throttle;
     float lastDesiredPitch, lastDesiredRoll, lastDesiredYaw;
 		float desiredPitch, desiredRoll, desiredYaw;
+    float lastPitch, lastRoll, lastYaw;
 		RF24 *radio;
     int radioData[7];
     const int sizeRadioData = sizeof(radioData);

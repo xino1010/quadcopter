@@ -73,17 +73,17 @@ void Controller::calculateSetpoints() {
   // THROTTLE
   sp.throttle = map(j1.valY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_THROTTLE, MAX_THROTTLE);
   // PITCH
-  sp.pitch = map(j2.valY, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MAX_PITCH, MIN_PITCH);
+  sp.pitch = mapFloat(j2.valY, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MAX_PITCH, MIN_PITCH);
   if (sp.pitch >= MEDIUM_PITCH - THRESHOLD && sp.pitch <= MEDIUM_PITCH + THRESHOLD) {
     sp.pitch = MEDIUM_PITCH;
   }
   // ROLL
-  sp.roll = map(j2.valX, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_ROLL, MAX_ROLL);
+  sp.roll = mapFloat(j2.valX, MIN_ANALOG_VALUE, MAX_ANALOG_VALUE, MIN_ROLL, MAX_ROLL);
   if (sp.roll >= MEDIUM_ROLL - THRESHOLD && sp.roll <= MEDIUM_ROLL + THRESHOLD) {
     sp.roll = MEDIUM_ROLL;
   }
   // YAW
-  sp.yaw = map(j1.valX, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_YAW, MAX_YAW);
+  sp.yaw = mapFloat(j1.valX, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_YAW, MAX_YAW);
   if (sp.yaw >= MEDIUM_YAW - THRESHOLD && sp.yaw <= MEDIUM_YAW + THRESHOLD) {
     sp.yaw = MEDIUM_YAW;
   }
@@ -92,7 +92,7 @@ void Controller::calculateSetpoints() {
 }
 
 void Controller::printSetpoints() {
-  #ifdef DEBUG_
+  #ifdef DEBUG_JOYSTICKS
     Serial.print("Throttle: ");
     Serial.print(sp.throttle);
     Serial.print(" \tPitch: ");
@@ -149,9 +149,6 @@ void Controller::readPotentiometers() {
   cd.kI = mapFloat(cd.kI, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KI, MAX_KI);
   cd.kD = mapFloat(cd.kD, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KD, MAX_KD);
 
-  cd.kI = 0;
-  cd.kD = 0;
-
   #ifdef DEBUG_PID_VALUES
     Serial.print("kP: ");
     Serial.print(cd.kP);
@@ -197,15 +194,20 @@ void Controller::readResetButton() {
 // CONTROL
 void Controller::readJoystick1() {
   j1.valX = analogRead(j1.pinX) + j1.offsetX;
+  delay(10);
   j1.valY = constrain(analogRead(j1.pinY) + j1.offsetY, MEDIUM_ANALOG_VALUE, MAX_ANALOG_VALUE);
+  delay(10);
 }
 
 void Controller::readJoystick2() {
   j2.valX = analogRead(j2.pinX) + j2.offsetX;
+  delay(10);
   j2.valY = analogRead(j2.pinY) + j2.offsetY;
+  delay(10);
 }
 
 void Controller::printJoystickData(struct JoystickInfo *ji) {
+  /*
   #ifdef DEBUG_JOYSTICKS
     Serial.print("JOYSTICK ");
     Serial.print(ji->num);
@@ -214,6 +216,7 @@ void Controller::printJoystickData(struct JoystickInfo *ji) {
     Serial.print(" Y: ");
     Serial.println(ji->valY);
   #endif
+  */
 }
 
 void Controller::readButtons() {
