@@ -23,8 +23,8 @@
 #define MIN_ANALOG_VALUE 0
 #define MEDIUM_ANALOG_VALUE 511
 #define MAX_ANALOG_VALUE 1023
-#define ZERO_THROTTLE 1000
-#define MIN_THROTTLE 1100
+#define ZERO_THROTTLE 900
+#define MIN_THROTTLE 1000
 #define MAX_THROTTLE 2000
 #define MIN_PITCH -30
 #define MEDIUM_PITCH 0
@@ -46,12 +46,6 @@
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
 #define POTENTIOMETRE_KD A3
-#define MIN_KP 0.0
-#define MAX_KP 1.5
-#define MIN_KI 0.0
-#define MAX_KI 1.0
-#define MIN_KD 0.0
-#define MAX_KD 10.0
 
 // CONTROL
 #define LED_STATUS 2
@@ -65,6 +59,13 @@
 class Controller {
 
   private:
+
+float MIN_KP = 0;
+float MAX_KP = 100;
+float MIN_KI = 0;
+float MAX_KI = 30;
+float MIN_KD = 0;
+float MAX_KD = 25;
 
     float mapFloat(long x, long in_min, long in_max, long out_min, long out_max);
 

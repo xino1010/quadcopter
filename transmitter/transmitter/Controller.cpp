@@ -145,17 +145,17 @@ void Controller::readPotentiometers() {
     Serial.println(cd.kD);
   #endif
 
-  cd.kP = mapFloat(cd.kP, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KP, MAX_KP);
-  cd.kI = mapFloat(cd.kI, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KI, MAX_KI);
-  cd.kD = mapFloat(cd.kD, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KD, MAX_KD);
+  cd.kP = mapFloat(cd.kP, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KP, MAX_KP) / (float) 100;
+  cd.kI = mapFloat(cd.kI, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KI, MAX_KI) / (float) 100;
+  cd.kD = mapFloat(cd.kD, MAX_ANALOG_VALUE, MIN_ANALOG_VALUE, MIN_KD, MAX_KD) / (float) 100;
 
   #ifdef DEBUG_PID_VALUES
     Serial.print("kP: ");
-    Serial.print(cd.kP);
+    Serial.print(cd.kP, 4);
     Serial.print("\tkI: ");
-    Serial.print(cd.kI);
+    Serial.print(cd.kI, 4);
     Serial.print("\tkD: ");
-    Serial.print(cd.kD);
+    Serial.print(cd.kD, 4);
   #endif
 }
 
