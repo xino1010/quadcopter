@@ -2,16 +2,16 @@
 #include <Servo.h>
 #include <nRF24L01.h>
 #include "RF24.h"
-#include "PID.h"
 #include <Wire.h>
 #include <Kalman.h>
+#include <PID_v1.h>
 
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
   #define DEBUG_IMU
-  //#define DEBUG_KALMAN
-  //#define DEBUG_MOTORS
+  #define DEBUG_KALMAN
+  #define DEBUG_MOTORS
   //#define DEBUG_RADIO
   //#define DEBUG_SONAR
   //#define DEBUG_PID
@@ -40,11 +40,26 @@
 #define PIN_MOTOR_BR 9
 #define ZERO_VALUE_MOTOR 1000
 #define MIN_VALUE_MOTOR 1100
-#define MAX_VALUE_MOTOR 2000
-#define MIN_VALUE_PID -1000.0
-#define MAX_VALUE_PID 1000.0
+#define MAX_VALUE_MOTOR 1900
 
 // RADIO
+#define THROTTLE_MIN 512
+#define THROTTLE_MAX 1023
+// R_PITCH
+#define PITCH_RMIN 0
+#define PITCH_RMEDIUM 512
+#define PITCH_RMAX 1024
+#define PITCH_WMIN -30
+#define PITCH_WMAX 30
+#define ROFFSET_PITCH 5
+// R_ROLL
+#define ROLL_RMIN 0
+#define ROLL_RMEDIUM 512
+#define ROLL_RMAX 1024
+#define ROLL_WMIN -30
+#define ROLL_WMAX 30
+#define ROFFSET_ROLL 5
+
 const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define NFR24L01_CE 8
 #define NFR24L01_CSN 10
@@ -61,42 +76,44 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define DESIRED_DISTANCE 200
 
 // IMU
-#define MAX_CHANGE_PITCH 15
-#define MIN_PITCH -30
-#define MAX_PITCH 30
-#define MAX_CHANGE_ROLL 15
-#define MIN_ROLL -30
-#define MAX_ROLL 30
-#define MAX_CHANGE_YAW 20
-#define MIN_YAW -90
-#define MAX_YAW 90
-#define READS_OFFSETS 2000
-#define HEAT_OFFSETS 400
+#define READS_OFFSETS 1000
+#define HEAT_OFFSETS 500
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead
-
 
 // LED
 #define LED_PIN 7
 
+// Track loop time.
+unsigned long prev_time = 0;
+
 // BMP180
 Adafruit_BMP085 bmp;
 
-// PID's
-double kpPitch = 0, kiPitch = 0, kdPitch = 0;
-double kpRoll = 0, kiRoll = 0, kdRoll = 0;
-double kpYaw = 0, kiYaw = 0, kdYaw = 0;
-double kpDistance = 0, kiDistance = 0, kdDistance = 0;
-double kpAltitude = 0, kiAltitude = 0, kdAltitude = 0;
-PID *pidRoll, *pidPitch, *pidYaw, *pidDistance, *pidAltitude;
+// PID
+// Pitch
+#define PITCH_PID_MIN -45 
+#define PITCH_PID_MAX 45
+#define KP_PITCH 0
+#define KI_PITCH 0
+#define KD_PITCH 0
+double pidPitchIn, pidPitchOut, pidPitchSetpoint = 0;
+PID pidPitch(&pidPitchIn, &pidPitchOut, &pidPitchSetpoint, KP_PITCH, KI_PITCH, KD_PITCH, DIRECT);
+
+// Roll
+#define ROLL_PID_MIN -45 
+#define ROLL_PID_MAX 45
+#define KP_ROLL 1
+#define KI_ROLL 0
+#define KD_ROLL 0
+double pidRollIn, pidRollOut, pidRollSetpoint = 0;
+PID pidRoll(&pidRollIn, &pidRollOut, &pidRollSetpoint, KP_ROLL, KI_ROLL, KD_ROLL, DIRECT);
 
 // MOTORS
-int vFL, vFR, vBL, vBR;
+int velocityFL, velocityFR, velocityBL, velocityBR;
 Servo motorFL, motorFR, motorBL, motorBR;
 
 // RADIO
 int throttle;
-float lastDesiredPitch, lastDesiredRoll, lastDesiredYaw;
-float desiredPitch, desiredRoll, desiredYaw;
 RF24 *radio;
 int radioData[7];
 const int sizeRadioData = sizeof(radioData);
@@ -105,19 +122,28 @@ const int sizeRadioPIDdata = sizeof(radioPIDdata);
 int cm;
 
 // IMU
-float offsets[3] = {0.0, 0.0, 0.0}; // Pitch, Roll, Yaw
-float Total_angle[3] = {0.0, 0.0, 0.0}; // Pitch, Roll, Yaw
-float currentPitch, currentRoll, currentYaw;
+const uint8_t IMUAddress = 0x68; // AD0 is logic low on the PCB
+const uint16_t I2C_TIMEOUT = 1000; // Used to check for errors in I2C communication
+float offsetPitch, offsetRoll, offsetYaw = 0;
+float anglePitch, angleRoll, angleYaw = 0;
 Kalman kalmanX;
 Kalman kalmanY;
 double accX, accY, accZ;
 double gyroX, gyroY, gyroZ;
 int16_t tempRaw;
 double gyroXangle, gyroYangle; // Angle calculate using the gyro only
-double compAngleX, compAngleY; // Calculated angle using a complementary filter
 double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
 uint32_t timer;
 uint8_t i2cData[14]; // Buffer for I2C data
+
+void printFrequency() {
+  #ifdef DEBUG
+    unsigned long elapsed_time = micros() - prev_time;
+    Serial.print(F("Time:"));
+    Serial.print((float) elapsed_time / 1000);
+    Serial.println(F("ms"));
+  #endif
+}
 
 int myAbs(int value) {
   return value > 0 ? value : value * -1;
@@ -169,95 +195,58 @@ void armMotors() {
 
 void calculateVelocities() {
 
-  // Update current points
-  pidPitch->setCurrentPoint(currentPitch);
-  pidRoll->setCurrentPoint(currentRoll);
-  pidYaw->setCurrentPoint(currentYaw);
+  pidPitchIn = anglePitch;
+  pidRollIn = angleRoll;
+  pidPitch.Compute();
+  pidRoll.Compute();
 
-  // Calculate the pids from the setpoints and the current point
-  double resultPitch = pidPitch->calculate();
-  double resultRoll = pidRoll->calculate();
-  double resultYaw = pidYaw->calculate();
-
-  resultPitch = map(resultPitch, MIN_PITCH, MAX_PITCH, MIN_VALUE_PID, MAX_VALUE_PID);
-  resultRoll = map(resultRoll, MIN_ROLL, MAX_ROLL, MIN_VALUE_PID, MAX_VALUE_PID);
-  resultYaw = map(resultYaw, MIN_YAW, MAX_YAW, MIN_VALUE_PID, MAX_VALUE_PID);
-
-  int tmpVFL = 0;
-  int tmpVFR = 0;
-  int tmpVBL = 0;
-  int tmpVBR = 0;
-
-  if (cm == CONTROL_MODE_ACRO) {
-    tmpVFL = throttle - resultRoll + resultPitch + resultYaw;
-    tmpVFR = throttle + resultRoll + resultPitch - resultYaw;
-    tmpVBL = throttle - resultRoll - resultPitch - resultYaw;
-    tmpVBR = throttle + resultRoll - resultPitch + resultYaw;
-  }
-  else if (cm == CONTROL_MODE_HOLD_DISTANCE) {
-    int dist = getDistance();
-    pidDistance->setCurrentPoint(dist);
-    double resultDistance = pidDistance->calculate();
-    resultDistance = map(resultDistance, MIN_DISTANCE, MAX_DISTANCE, MIN_VALUE_PID, MAX_VALUE_PID);
-    tmpVFL = MIN_VALUE_MOTOR - resultDistance - resultRoll + resultPitch + resultYaw;
-    tmpVFR = MIN_VALUE_MOTOR - resultDistance + resultRoll + resultPitch - resultYaw;
-    tmpVBL = MIN_VALUE_MOTOR - resultDistance - resultRoll - resultPitch - resultYaw;
-    tmpVBR = MIN_VALUE_MOTOR - resultDistance + resultRoll - resultPitch + resultYaw;
-  }
-  else if (cm == CONTROL_MODE_HOLD_ALTITUDE) {
-    #ifdef BMP180
-      int alt = getAltitude();
-      double currentPointAltitude = alt - offsetAltitude;
-      pidAltitude->setCurrentPoint(currentPointAltitude);
-      double resultAltitude = pidAltitude->calculate();
-      resultAltitude = map(resultAltitude, MIN_ALTITUDE, MAX_ALTITUDE, MIN_VALUE_PID, MAX_VALUE_PID);
-      tmpVFL = MIN_VALUE_MOTOR - resultAltitude - resultRoll + resultPitch + resultYaw;
-      tmpVFR = MIN_VALUE_MOTOR - resultAltitude + resultRoll + resultPitch - resultYaw;
-      tmpVBL = MIN_VALUE_MOTOR - resultAltitude - resultRoll - resultPitch - resultYaw;
-      tmpVBR = MIN_VALUE_MOTOR - resultAltitude + resultRoll - resultPitch + resultYaw;
-    #endif
+  switch (cm) {
+    case CONTROL_MODE_OFF:
+      // Stop motors
+      velocityFL = ZERO_VALUE_MOTOR;
+      velocityFR = ZERO_VALUE_MOTOR;
+      velocityBL = ZERO_VALUE_MOTOR;
+      velocityBR = ZERO_VALUE_MOTOR;
+      break;
+    case CONTROL_MODE_ACRO:
+      velocityFL = throttle - pidPitchOut + pidRollOut;
+      velocityFR = throttle - pidPitchOut - pidRollOut;
+      velocityBL = throttle + pidPitchOut + pidRollOut;
+      velocityBR = throttle + pidPitchOut - pidRollOut;
+      break;
+    case CONTROL_MODE_HOLD_DISTANCE:
+      break;
+    case CONTROL_MODE_HOLD_ALTITUDE:
+      break;
+    default:
+      // Stop motors
+      velocityFL = ZERO_VALUE_MOTOR;
+      velocityFR = ZERO_VALUE_MOTOR;
+      velocityBL = ZERO_VALUE_MOTOR;
+      velocityBR = ZERO_VALUE_MOTOR;
+      break;
   }
 
-  // Check that the speeds do not exceed the limits
-  vFL = constrain(tmpVFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
-  vFR = constrain(tmpVFR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
-  vBL = constrain(tmpVBL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
-  vBR = constrain(tmpVBR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
 }
 
 void updateMotorsVelocities() {
   #ifdef DEBUG_MOTORS
     Serial.print(F("CM: "));
     Serial.print(cm);
-    Serial.print(F(" FL: "));
-    Serial.print(vFL);
-    Serial.print(F(" FR: "));
-    Serial.print(vFR);
-    Serial.print(F(" BL: "));
-    Serial.print(vBL);
-    Serial.print(F(" BR: "));
-    Serial.println(vBR);
+    Serial.print(F(" VFL: "));
+    Serial.print(velocityFL);
+    Serial.print(F(" VFR: "));
+    Serial.print(velocityFR);
+    Serial.print(F(" VBL: "));
+    Serial.print(velocityBL);
+    Serial.print(F(" VBR: "));
+    Serial.println(velocityBR);
   #endif
 
-  motorFL.writeMicroseconds(vFL);
-  motorFR.writeMicroseconds(vFR);
-  motorBL.writeMicroseconds(vBL);
-  motorBR.writeMicroseconds(vBR);
-}
-
-void stopMotors() {
-  vFL = ZERO_VALUE_MOTOR;
-  vFR = ZERO_VALUE_MOTOR;
-  vBL = ZERO_VALUE_MOTOR;
-  vBR = ZERO_VALUE_MOTOR;
-
-  #ifdef BMP180
-    // Update altitude because quadcopter could have changed the position
-    if (millis() - previousAltitudeRead > TIME_READ_ALTITUDE) {
-      offsetAltitude = getAltitude();
-      previousAltitudeRead = millis();
-    }
-  #endif
+  motorFL.writeMicroseconds(velocityFL);
+  motorFR.writeMicroseconds(velocityFR);
+  motorBL.writeMicroseconds(velocityBL);
+  motorBR.writeMicroseconds(velocityBR);
 }
 
 // RADIO
@@ -266,33 +255,22 @@ void updateRadioInfo() {
     enableLED();
     radio->read(radioData, sizeRadioData);
 
-    throttle = radioData[0];
-    // Update desired angles
-    // Pitch 
-    desiredPitch = radioData[1];
-    pidPitch->setDesiredPoint(radioData[1]);
-    // Roll
-    desiredRoll = radioData[2];
-    pidRoll->setDesiredPoint(desiredRoll);
-    // Yaw
-    desiredYaw = radioData[3];
-    pidYaw->setDesiredPoint(desiredYaw);
-
-    // Check if there have sent any abnormal data
-    if (myAbs(lastDesiredPitch - desiredPitch) > MAX_CHANGE_PITCH) {
-      desiredPitch = lastDesiredPitch;
+    // R_THROTTLE
+    throttle = map(radioData[0], THROTTLE_MIN, THROTTLE_MAX, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+    // R_PITCH
+    if (radioData[1] >= PITCH_RMEDIUM - ROFFSET_PITCH && radioData[1] <= PITCH_RMEDIUM + ROFFSET_PITCH) {
+      pidPitchSetpoint = 0;
     }
-    if (myAbs(lastDesiredRoll - desiredRoll) > MAX_CHANGE_ROLL) {
-      desiredRoll = lastDesiredRoll;
+    else {
+      pidPitchSetpoint = map(radioData[1], PITCH_RMIN, PITCH_RMAX, PITCH_WMIN, PITCH_WMAX);
     }
-    if (myAbs(lastDesiredYaw - desiredYaw) > MAX_CHANGE_YAW) {
-      desiredYaw = lastDesiredYaw;
+    // R_ROLL
+    if (radioData[2] >= ROLL_RMEDIUM - ROFFSET_ROLL && radioData[2] <= ROLL_RMEDIUM + ROFFSET_ROLL) {
+      pidRollSetpoint = 0;
     }
-
-    // Update last desired angle
-    lastDesiredPitch = desiredPitch;
-    lastDesiredRoll = desiredRoll;
-    lastDesiredYaw = desiredYaw;
+    else {
+      pidRollSetpoint = map(radioData[2], ROLL_RMIN, ROLL_RMAX, ROLL_WMIN, ROLL_WMAX);
+    }
 
     // Power off motors
     if (radioData[4] == LOW) {
@@ -312,8 +290,7 @@ void updateRadioInfo() {
     else if (radioData[6] == HIGH) {
       #ifdef BMP180
         float altitudeSea = getAltitude();
-        float currentAltitude = altitudeSea - offsetAltitude;
-        if (currentAltitude >= MIN_ALTITUDE && currentAltitude < MAX_ALTITUDE) {
+        if (altitudeSea >= MIN_ALTITUDE && altitudeSea < MAX_ALTITUDE) {
           cm = CONTROL_MODE_HOLD_ALTITUDE;
         }
         else {
@@ -343,11 +320,9 @@ void updatePIDInfo() {
     }
 
     #ifdef CALIBRATION_PITCH
-      pidPitch->setKp(radioPIDdata[0]);
-      pidPitch->setKi(radioPIDdata[1]);
-      pidPitch->setKd(radioPIDdata[2]);
+      // Change K's of pid
       if (resetPid == HIGH) {
-        pidPitch->reset();
+        // Reset PID's
       }
       #ifdef DEBUG_PID
         Serial.print(F("kP: "));
@@ -404,18 +379,6 @@ void updatePIDInfo() {
   }
 }
 
-// IMU
-void initIMU() {
-  Wire.begin();
-  Wire.beginTransmission(0x68);
-  Wire.write(0x6B);
-  Wire.write(0);
-  Wire.endTransmission(true);
-  #ifdef DEBUG_IMU
-    Serial.println(F("MPU6050 initialized"));
-  #endif
-}
-
 // HC-SR04
 int getDistance() {
     // To generate a clean pulse we put to LOW 4us
@@ -456,11 +419,7 @@ void disableLED() {
   digitalWrite(LED_PIN, LOW);
 }
 
-
 // IMU
-const uint8_t IMUAddress = 0x68; // AD0 is logic low on the PCB
-const uint16_t I2C_TIMEOUT = 1000; // Used to check for errors in I2C communication
-
 uint8_t i2cWrite(uint8_t registerAddress, uint8_t data, bool sendStop) {
   return i2cWrite(registerAddress, &data, 1, sendStop); // Returns 0 on success
 }
@@ -505,6 +464,18 @@ uint8_t i2cRead(uint8_t registerAddress, uint8_t *data, uint8_t nbytes) {
   return 0; // Success
 }
 
+// IMU
+void initIMU() {
+  Wire.begin();
+  Wire.beginTransmission(0x68);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
+  #ifdef DEBUG_IMU
+    Serial.println(F("MPU6050 initialized"));
+  #endif
+}
+
 void getAngles(bool useOffsets) {
 
   /* Update all the values */
@@ -538,14 +509,13 @@ void getAngles(bool useOffsets) {
     // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
     if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
       kalmanX.setAngle(roll);
-      compAngleX = roll;
       kalAngleX = roll;
       gyroXangle = roll;
     }
     else {
       kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
     }
-  
+
     if (abs(kalAngleX) > 90) {
       gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
     }
@@ -561,7 +531,7 @@ void getAngles(bool useOffsets) {
     else {
       kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
     }
-  
+
     if (abs(kalAngleY) > 90) {
       gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
     }
@@ -571,9 +541,6 @@ void getAngles(bool useOffsets) {
   gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
   gyroYangle += gyroYrate * dt;
 
-  compAngleX = 0.93 * (compAngleX + gyroXrate * dt) + 0.07 * roll; // Calculate the angle using a Complimentary filter
-  compAngleY = 0.93 * (compAngleY + gyroYrate * dt) + 0.07 * pitch;
-
   // Reset the gyro angle when it has drifted too much
   if (gyroXangle < -180 || gyroXangle > 180) {
     gyroXangle = kalAngleX;
@@ -582,65 +549,50 @@ void getAngles(bool useOffsets) {
     gyroYangle = kalAngleY;
   }
 
-  #ifdef DEBUG_KALMAN
-    Serial.print("Pitch: ");
-    Serial.print(pitch); Serial.print("\t");
-    Serial.print(gyroYangle); Serial.print("\t");
-    Serial.print(compAngleY); Serial.print("\t");
-    Serial.print(kalAngleY); Serial.print("\t");
-  
-    Serial.print("Roll: ");
-    Serial.print(roll); Serial.print("\t");
-    Serial.print(gyroXangle); Serial.print("\t");
-    Serial.print(compAngleX); Serial.print("\t");
-    Serial.println(kalAngleX); Serial.print("\t");
-  #endif
-
-  Total_angle[1] = kalAngleY; // Pitch
-  Total_angle[0] = kalAngleX; // Roll
-
-  delay(2);
+  anglePitch = kalAngleY; // Pitch
+  angleRoll = kalAngleX; // Roll
 
   if (useOffsets) {
-    currentPitch = Total_angle[1] + offsets[1];
-    currentRoll = Total_angle[0] + offsets[0];
-    currentYaw = Total_angle[2];
+    anglePitch += offsetPitch;
+    angleRoll += offsetRoll;
   }
-  else {
-    currentPitch = Total_angle[1];
-    currentRoll = Total_angle[0];
-    currentYaw = Total_angle[2];
-  }
-  
+
   #ifdef DEBUG_IMU
     Serial.print("Pitch: ");
-    Serial.print(currentPitch);
+    Serial.print(anglePitch);
     Serial.print("\tRoll: ");
-    Serial.print(currentRoll);
+    Serial.print(angleRoll);
     Serial.print("\tYaw: ");
-    Serial.println(currentYaw);
+    Serial.println(angleYaw);
   #endif
 }
 
 void calculateOffsets() {
+  #ifdef DEBUG_IMU
+    Serial.println("Heating mpu6050...");
+  #endif
+  for (int i = 0; i < HEAT_OFFSETS; i++) {
+    getAngles(false);
+  }
+  #ifdef DEBUG_IMU
+    Serial.println("Calculating offsets for mpu6050...");
+  #endif
   for (int i = 0; i < READS_OFFSETS; i++) {
     getAngles(false);
-    if (i > HEAT_OFFSETS) {
-      offsets[0] += (0 - Total_angle[0]);
-      offsets[1] += (0 - Total_angle[1]);
-    }
+    offsetPitch -= anglePitch;
+    offsetRoll -= angleRoll;
   }
-  offsets[0] /= (float) (READS_OFFSETS - HEAT_OFFSETS);
-  offsets[1] /= (float) (READS_OFFSETS - HEAT_OFFSETS);
+  offsetPitch /= (float) READS_OFFSETS;
+  offsetRoll /= (float) READS_OFFSETS;
   Serial.println("******************************************************************************");
-  Serial.print("OffsetX: ");
-  Serial.print(offsets[0]);
-  Serial.print("\tOffsetY: ");
-  Serial.println(offsets[1]);
+  Serial.print("offsetPitch: ");
+  Serial.print(offsetPitch);
+  Serial.print("\toffsetRoll: ");
+  Serial.println(offsetRoll);
   Serial.println("******************************************************************************");
 }
 
-void initMPU() {
+void initMPU6050() {
   i2cData[0] = 7; // Set the sample rate to 1000Hz - 8kHz/(7+1) = 1000Hz
   i2cData[1] = 0x00; // Disable FSYNC and set 260 Hz Acc filtering, 256 Hz Gyro filtering, 8 KHz sampling
   i2cData[2] = 0x00; // Set Gyro Full Scale Range to ±250deg/s
@@ -679,9 +631,6 @@ void initMPU() {
   kalmanY.setAngle(pitch);
   gyroXangle = roll;
   gyroYangle = pitch;
-  compAngleX = roll;
-  compAngleY = pitch;
-
   timer = micros();
 }
 
@@ -702,37 +651,16 @@ void initVars() {
         delay(1000);
       }
     }
-    delay(1000);
-    offsetAltitude = getAltitude();
-    previousAltitudeRead = millis();
-    pidAltitude = new PID(kpAltitude, kiAltitude, kdAltitude, MIN_ALTITUDE, MAX_ALTITUDE);
-    pidAltitude->setDesiredPoint(DESIRED_ALTITUDE);
-    pidAltitude->setDesiredPoint(offsetAltitude);
+    delay(500);
   #endif
 
   // PID
-  pidPitch = new PID(kpPitch, kiPitch, kdPitch, MIN_PITCH, MAX_PITCH);
-  pidRoll = new PID(kpRoll, kiRoll, kdRoll, MIN_ROLL, MAX_ROLL);
-  pidYaw = new PID(kpYaw, kiYaw, kdYaw, MIN_YAW, MAX_YAW);
-  pidDistance = new PID(kpDistance, kiDistance, kdDistance, MIN_DISTANCE, MAX_DISTANCE);
-  pidDistance->setDesiredPoint(DESIRED_DISTANCE);
-  
-  desiredPitch = 0;
-  lastDesiredPitch = 0;
-  pidPitch->setDesiredPoint(desiredPitch);
-  desiredRoll = 0;
-  lastDesiredRoll = 0;
-  pidRoll->setDesiredPoint(desiredRoll);
-  desiredYaw = 0;
-  lastDesiredYaw = 0;
-  pidYaw->setDesiredPoint(desiredYaw);
-  pidDistance->setDesiredPoint(0);
-
-  // MOTORS
-  vFL = 0;
-  vFR = 0;
-  vBL = 0;
-  vBR = 0;
+  pidPitch.SetOutputLimits(PITCH_PID_MIN, PITCH_PID_MAX);
+  pidPitch.SetMode(AUTOMATIC);
+  pidPitch.SetSampleTime(10);
+  pidRoll.SetOutputLimits(ROLL_PID_MIN, ROLL_PID_MAX);
+  pidRoll.SetMode(AUTOMATIC);
+  pidRoll.SetSampleTime(10);
 
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
@@ -753,11 +681,6 @@ void initVars() {
   radio->openReadingPipe(1, radioAddress);
   radio->startListening();
 
-  // IMU
-  currentPitch = 0;
-  currentRoll = 0;
-  currentYaw = 0;
-  
   // HC-SR04
   //pinMode(HCSR04_ECHO_PIN, INPUT);
   //pinMode(HCSR04_TRIGGER_PIN, OUTPUT);
@@ -765,7 +688,7 @@ void initVars() {
 }
 
 void countDown() {
-  int i = 9;
+  int i = 4;
   #ifdef DEBUG
     Serial.println("Countdown: ");
   #endif
@@ -774,13 +697,14 @@ void countDown() {
     disableLED();
     #ifdef DEBUG
       Serial.print(i);
-      Serial.println("...");
+      Serial.print(",");
     #endif
     delay(500);
     enableLED();
     i--;
   }
   #ifdef DEBUG
+    Serial.println();
     Serial.println("Quadcopter initialized");
   #endif
 }
@@ -792,35 +716,21 @@ void setup() {
   #else
     TWBR = ((F_CPU / 400000UL) - 16) / 2; // Set I2C frequency to 400kHz
   #endif
-  
+
   #ifdef DEBUG
     Serial.begin(38400);
     while (!Serial) {}
   #endif
-  
-  initVars();
 
-  // Init MPU6050
-  initMPU();
-
-  delay(500);
-
-  calculateOffsets();
-  
   enableLED();
-
-  // Connect Motors
+  initVars();
+  initMPU6050();
+  calculateOffsets();
   connectMotors();
-  delay(20);
-
-  // Send a minimum signal to prepare the motors
   armMotors();
-
-  // Wait a while
   countDown();
-
   disableLED();
-  
+
 }
 
 void loop() {
@@ -838,16 +748,13 @@ void loop() {
   // Read angles from sensor
   getAngles(true);
 
-  if (cm == CONTROL_MODE_OFF) {
-    // Set minim velocity to all motors
-    stopMotors();
-  }
-  else {
-    // Calculate velocities of each motor depending of ControlMode
-    calculateVelocities();
-  }
+  // Calculate velocities of each motor depending of ControlMode
+  calculateVelocities();
 
   // Send velocities to motors
   updateMotorsVelocities();
 
+  printFrequency();
+
+  prev_time = micros();
 }
