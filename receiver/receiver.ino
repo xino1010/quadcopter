@@ -9,12 +9,12 @@
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
-  #define DEBUG_IMU
-  #define DEBUG_KALMAN
+  //#define DEBUG_IMU
   #define DEBUG_MOTORS
   //#define DEBUG_RADIO
-  //#define DEBUG_SONAR
   //#define DEBUG_PID
+  //#define DEBUG_SONAR
+  //#define DEBUG_KALMAN
 #endif
 
 //#define NORMAL_MODE
@@ -76,12 +76,13 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define DESIRED_DISTANCE 200
 
 // IMU
-#define READS_OFFSETS 1000
-#define HEAT_OFFSETS 500
+#define HEAT_OFFSETS 1000
+#define READS_OFFSETS 500
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead
 
 // LED
 #define LED_PIN 7
+#define SECONDS_COUNTDOWN 5
 
 // Track loop time.
 unsigned long prev_time = 0;
@@ -93,18 +94,18 @@ Adafruit_BMP085 bmp;
 // Pitch
 #define PITCH_PID_MIN -45 
 #define PITCH_PID_MAX 45
-#define KP_PITCH 0
-#define KI_PITCH 0
-#define KD_PITCH 0
+float KP_PITCH = 1;
+float KI_PITCH = 0;
+float KD_PITCH = 0;
 double pidPitchIn, pidPitchOut, pidPitchSetpoint = 0;
 PID pidPitch(&pidPitchIn, &pidPitchOut, &pidPitchSetpoint, KP_PITCH, KI_PITCH, KD_PITCH, DIRECT);
 
 // Roll
 #define ROLL_PID_MIN -45 
 #define ROLL_PID_MAX 45
-#define KP_ROLL 1
-#define KI_ROLL 0
-#define KD_ROLL 0
+float KP_ROLL = 0;
+float KI_ROLL = 0;
+float KD_ROLL = 0;
 double pidRollIn, pidRollOut, pidRollSetpoint = 0;
 PID pidRoll(&pidRollIn, &pidRollOut, &pidRollSetpoint, KP_ROLL, KI_ROLL, KD_ROLL, DIRECT);
 
@@ -137,7 +138,7 @@ uint32_t timer;
 uint8_t i2cData[14]; // Buffer for I2C data
 
 void printFrequency() {
-  #ifdef DEBUG
+  #ifdef DEBUGa
     unsigned long elapsed_time = micros() - prev_time;
     Serial.print(F("Time:"));
     Serial.print((float) elapsed_time / 1000);
@@ -558,24 +559,24 @@ void getAngles(bool useOffsets) {
   }
 
   #ifdef DEBUG_IMU
-    Serial.print("Pitch: ");
+    Serial.print(F("Pitch: "));
     Serial.print(anglePitch);
-    Serial.print("\tRoll: ");
+    Serial.print(F("\tRoll: "));
     Serial.print(angleRoll);
-    Serial.print("\tYaw: ");
+    Serial.print(F("\tYaw: "));
     Serial.println(angleYaw);
   #endif
 }
 
 void calculateOffsets() {
   #ifdef DEBUG_IMU
-    Serial.println("Heating mpu6050...");
+    Serial.println(F("Heating mpu6050..."));
   #endif
   for (int i = 0; i < HEAT_OFFSETS; i++) {
     getAngles(false);
   }
   #ifdef DEBUG_IMU
-    Serial.println("Calculating offsets for mpu6050...");
+    Serial.println(F("Calculating offsets for mpu6050..."));
   #endif
   for (int i = 0; i < READS_OFFSETS; i++) {
     getAngles(false);
@@ -584,12 +585,12 @@ void calculateOffsets() {
   }
   offsetPitch /= (float) READS_OFFSETS;
   offsetRoll /= (float) READS_OFFSETS;
-  Serial.println("******************************************************************************");
-  Serial.print("offsetPitch: ");
-  Serial.print(offsetPitch);
-  Serial.print("\toffsetRoll: ");
-  Serial.println(offsetRoll);
-  Serial.println("******************************************************************************");
+  #ifdef DEBUG_IMU
+    Serial.print(F("offsetPitch: "));
+    Serial.print(offsetPitch);
+    Serial.print(F("\toffsetRoll: "));
+    Serial.println(offsetRoll);
+  #endif
 }
 
 void initMPU6050() {
@@ -688,24 +689,27 @@ void initVars() {
 }
 
 void countDown() {
-  int i = 4;
   #ifdef DEBUG
-    Serial.println("Countdown: ");
+    Serial.print(F("Countdown: "));
   #endif
-  while (i >= 0) {
+  for (int i = SECONDS_COUNTDOWN; i >= 1; i--) {
     delay(500);
     disableLED();
     #ifdef DEBUG
       Serial.print(i);
-      Serial.print(",");
+      if (i > 1) {
+        Serial.print(F(","));
+      }
+      else {
+        Serial.print(F("..."));
+      }
     #endif
     delay(500);
     enableLED();
-    i--;
   }
   #ifdef DEBUG
     Serial.println();
-    Serial.println("Quadcopter initialized");
+    Serial.println(F("Quadcopter initialized"));
   #endif
 }
 
