@@ -214,10 +214,23 @@ void calculateVelocities() {
       velocityFR = throttle - pidPitchOut - pidRollOut;
       velocityBL = throttle + pidPitchOut + pidRollOut;
       velocityBR = throttle + pidPitchOut - pidRollOut;
+
+      velocityFL = constrain(velocityFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityFR = constrain(velocityFR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityBL = constrain(velocityBL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityBR = constrain(velocityBR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
       break;
     case CONTROL_MODE_HOLD_DISTANCE:
+      velocityFL = constrain(velocityFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityFR = constrain(velocityFR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityBL = constrain(velocityBL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityBR = constrain(velocityBR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
       break;
     case CONTROL_MODE_HOLD_ALTITUDE:
+      velocityFL = constrain(velocityFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityFR = constrain(velocityFR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityBL = constrain(velocityBL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+      velocityBR = constrain(velocityBR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
       break;
     default:
       // Stop motors
@@ -466,17 +479,6 @@ uint8_t i2cRead(uint8_t registerAddress, uint8_t *data, uint8_t nbytes) {
 }
 
 // IMU
-void initIMU() {
-  Wire.begin();
-  Wire.beginTransmission(0x68);
-  Wire.write(0x6B);
-  Wire.write(0);
-  Wire.endTransmission(true);
-  #ifdef DEBUG_IMU
-    Serial.println(F("MPU6050 initialized"));
-  #endif
-}
-
 void getAngles(bool useOffsets) {
 
   /* Update all the values */
@@ -633,6 +635,9 @@ void initMPU6050() {
   gyroXangle = roll;
   gyroYangle = pitch;
   timer = micros();
+  #ifdef DEBUG_IMU
+    Serial.println(F("MPU6050 initialized"));
+  #endif
 }
 
 void initVars() {
