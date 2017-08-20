@@ -21,21 +21,8 @@
 
 // TRANSMITTER
 #define MIN_ANALOG_VALUE 0
-#define MEDIUM_ANALOG_VALUE 511
+#define MEDIUM_ANALOG_VALUE 512
 #define MAX_ANALOG_VALUE 1023
-#define ZERO_THROTTLE 900
-#define MIN_THROTTLE 1000
-#define MAX_THROTTLE 2000
-#define MIN_PITCH -30
-#define MEDIUM_PITCH 0
-#define MAX_PITCH 30
-#define MIN_ROLL -30
-#define MEDIUM_ROLL 0
-#define MAX_ROLL 30
-#define MIN_YAW -45
-#define MEDIUM_YAW 0
-#define MAX_YAW 45
-#define THRESHOLD 2
 
 // RADIO
 #define NFR24L01_CE 9
@@ -54,20 +41,20 @@
 #define BUTTON_STATUS 6
 #define BUTTON_HOLD_DISTANCE 7
 #define BUTTON_HOLD_ALTITUDE 8
-#define NUMBER_READS_GET_OFFSET_JOYSTICK 400
 
 class Controller {
 
   private:
 
-float MIN_KP = 0;
-float MAX_KP = 50;
-float MIN_KI = 0;
-float MAX_KI = 1;
-float MIN_KD = 0;
-float MAX_KD = 5;
+    // Milli
+    float MIN_KP = 0;
+    float MAX_KP = 500;
+    float MIN_KI = 0;
+    float MAX_KI = 10;
+    float MIN_KD = 0;
+    float MAX_KD = 1000;
 
-    float mapFloat(long x, long in_min, long in_max, long out_min, long out_max);
+    float mapFloat(float x, float in_min, float in_max, float out_min, float out_max);
 
     // TRANSMITTER
     struct SetPoints {
@@ -106,13 +93,8 @@ float MAX_KD = 5;
 
     // CONTROL
     struct JoystickInfo {
-      int num;
       int pinX;
       int pinY;
-      int valX;
-      int valY;
-      int offsetX;
-      int offsetY;
     };
 
     JoystickInfo j1;
@@ -126,7 +108,6 @@ float MAX_KD = 5;
 
     void readJoystick1();
     void readJoystick2();
-    void printJoystickData(struct JoystickInfo *ji);
     void readButtons();
     void printButtons();
     void updateLeds();
@@ -135,7 +116,6 @@ float MAX_KD = 5;
     Controller();
 
     // TRANSMITTER
-    void calculateSetpoints();
 
     // RADIO
     void sendRadioInfo();

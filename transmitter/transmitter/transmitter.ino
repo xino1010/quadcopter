@@ -10,17 +10,12 @@ void setup() {
   #endif
 
   c = new Controller();
-
-  #ifdef NORMAL_MODE
-    c->calibrateJoysticks();
-  #endif
 }
 
 void loop() {
 
   #ifdef NORMAL_MODE
     c->getControllerData();
-    c->calculateSetpoints();
     c->sendRadioInfo();
   #endif
 
