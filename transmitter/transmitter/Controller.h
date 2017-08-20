@@ -61,11 +61,11 @@ class Controller {
   private:
 
 float MIN_KP = 0;
-float MAX_KP = 100;
+float MAX_KP = 50;
 float MIN_KI = 0;
-float MAX_KI = 30;
+float MAX_KI = 1;
 float MIN_KD = 0;
-float MAX_KD = 25;
+float MAX_KD = 5;
 
     float mapFloat(long x, long in_min, long in_max, long out_min, long out_max);
 

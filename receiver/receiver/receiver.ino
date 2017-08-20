@@ -744,7 +744,7 @@ void initVars() {
   #endif
 
   #ifdef CALIBRATION_MODE
-    throttle = 1150;
+    throttle = 1200;
     cm = CONTROL_MODE_ACRO;
   #endif
 
@@ -801,26 +801,26 @@ void setup() {
   
   initVars();
 
-  // Init MPU9250
+  // Init MPU6050
   initMPU();
 
   delay(500);
 
-  //calculateOffsets();
-  //enableLED();
+  calculateOffsets();
+  
+  enableLED();
 
   // Connect Motors
-  //connectMotors();
-  //delay(50);
+  connectMotors();
+  delay(20);
 
   // Send a minimum signal to prepare the motors
-  //armMotors();
-  //delay(50);
+  armMotors();
 
   // Wait a while
-  //countDown();
+  countDown();
 
-  //disableLED();
+  disableLED();
   
 }
 
@@ -828,12 +828,12 @@ void loop() {
 
   #ifdef NORMAL_MODE
   	// Read data from radio
-  	//updateRadioInfo();
+  	updateRadioInfo();
   #endif
 
   #ifdef CALIBRATION_MODE
     // Read constants of kpi from radio
-    //updatePIDInfo();
+    updatePIDInfo();
   #endif
 
   // Read angles from sensor
@@ -841,14 +841,14 @@ void loop() {
 
   if (cm == CONTROL_MODE_OFF) {
     // Set minim velocity to all motors
-    //stopMotors();
+    stopMotors();
   }
   else {
     // Calculate velocities of each motor depending of ControlMode
-    //calculateVelocities();
+    calculateVelocities();
   }
 
   // Send velocities to motors
-  //updateMotorsVelocities();
+  updateMotorsVelocities();
 
 }

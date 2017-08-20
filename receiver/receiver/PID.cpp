@@ -58,6 +58,7 @@ void PID::reset() {
   I = 0;
   desiredPoint = 0;
   currentPoint = 0;
+  _time = millis();
   lastDt = millis();
   lastError = 0;
 }
