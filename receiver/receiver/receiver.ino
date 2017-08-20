@@ -38,9 +38,8 @@
 #define PIN_MOTOR_FR 5
 #define PIN_MOTOR_BL 6
 #define PIN_MOTOR_BR 9
-#define ARM_MOTOR 800
-#define ZERO_VALUE_MOTOR 900
-#define MIN_VALUE_MOTOR 1000
+#define ZERO_VALUE_MOTOR 1000
+#define MIN_VALUE_MOTOR 1100
 #define MAX_VALUE_MOTOR 2000
 #define MIN_VALUE_PID -1000.0
 #define MAX_VALUE_PID 1000.0
@@ -158,10 +157,10 @@ void connectMotors() {
 }
 
 void armMotors() {
-  motorFL.writeMicroseconds(ARM_MOTOR);
-  motorFR.writeMicroseconds(ARM_MOTOR);
-  motorBL.writeMicroseconds(ARM_MOTOR);
-  motorBR.writeMicroseconds(ARM_MOTOR);
+  motorFL.writeMicroseconds(ZERO_VALUE_MOTOR);
+  motorFR.writeMicroseconds(ZERO_VALUE_MOTOR);
+  motorBL.writeMicroseconds(ZERO_VALUE_MOTOR);
+  motorBR.writeMicroseconds(ZERO_VALUE_MOTOR);
 
   #ifdef DEBUG_MOTORS
     Serial.println(F("Motors armed"));
@@ -744,7 +743,7 @@ void initVars() {
   #endif
 
   #ifdef CALIBRATION_MODE
-    throttle = 1200;
+    throttle = 1250;
     cm = CONTROL_MODE_ACRO;
   #endif
 
@@ -795,7 +794,7 @@ void setup() {
   #endif
   
   #ifdef DEBUG
-    Serial.begin(115200);
+    Serial.begin(38400);
     while (!Serial) {}
   #endif
   

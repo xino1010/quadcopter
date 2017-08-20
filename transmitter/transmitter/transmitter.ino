@@ -4,7 +4,7 @@ Controller *c;
 
 void setup() {
   #ifdef DEBUG
-    Serial.begin(115200);
+    Serial.begin(38400);
     while (!Serial){}
     delay(1000);
   #endif
