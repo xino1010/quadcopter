@@ -3,14 +3,13 @@
 #include <nRF24L01.h>
 #include "RF24.h"
 
-//#define NORMAL_MODE
-#define CALIBRATION_MODE
+#define NORMAL_MODE
+//#define CALIBRATION_MODE
 
 #define DEBUG
 #ifdef DEBUG
-  #ifdef CALIBRATION_MODE
+  #ifdef NORMAL_MODE
     #define DEBUG_JOYSTICKS
-    //#define DEBUG_BUTTONS
   #endif
   //#define DEBUG_RADIO
   #ifdef CALIBRATION_MODE
@@ -36,11 +35,11 @@
 
 // CONTROL
 #define LED_STATUS 2
-#define LED_HOLD_DISTANCE 3
-#define LED_HOLD_ALTITUDE 4
-#define BUTTON_STATUS 6
-#define BUTTON_HOLD_DISTANCE 7
-#define BUTTON_HOLD_ALTITUDE 8
+#define LED_HOLD_DISTANCE 4
+#define LED_HOLD_ALTITUDE 6
+#define BUTTON_STATUS 3
+#define BUTTON_HOLD_DISTANCE 5
+#define BUTTON_HOLD_ALTITUDE 7
 
 class Controller {
 
@@ -109,7 +108,6 @@ class Controller {
     void readJoystick1();
     void readJoystick2();
     void readButtons();
-    void printButtons();
     void updateLeds();
 
   public:

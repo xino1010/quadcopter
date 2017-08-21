@@ -62,17 +62,17 @@ void Controller::printSetpoints() {
   #ifdef DEBUG_JOYSTICKS
     Serial.print(F("Throttle: "));
     Serial.print(sp.throttle);
-    Serial.print(F(" \tPitch: "));
+    Serial.print(F("\tPitch: "));
     Serial.print(sp.pitch);
-    Serial.print(F("º \tRoll: "));
+    Serial.print(F("\tRoll: "));
     Serial.print(sp.roll);
-    Serial.print(F("º \tYaw: "));
+    Serial.print(F("\tYaw: "));
     Serial.print(sp.yaw);
-    Serial.print(F("º \tStatus: "));
+    Serial.print(F("\tStatus: "));
     Serial.print(sp.status);
-    Serial.print(F(" \tHoldDist: "));
+    Serial.print(F("\tHoldDist: "));
     Serial.print(sp.holdDistance);
-    Serial.print(F(" \tHoldAlt: "));
+    Serial.print(F("\tHoldAlt: "));
     Serial.println(sp.holdAltitude);
   #endif
 }
@@ -160,13 +160,13 @@ void Controller::readResetButton() {
 
 // CONTROL
 void Controller::readJoystick1() {
-  sp.throttle = analogRead(j1.pinX);
-  sp.yaw = analogRead(j1.pinY);
+  sp.throttle = MAX_ANALOG_VALUE - analogRead(j1.pinY);
+  sp.yaw = analogRead(j1.pinX);
 }
 
 void Controller::readJoystick2() {
-  sp.pitch = analogRead(j2.pinX);
-  sp.roll = analogRead(j2.pinY);
+  sp.roll = analogRead(j2.pinX);
+  sp.pitch = MAX_ANALOG_VALUE - analogRead(j2.pinY);
 }
 
 void Controller::readButtons() {
@@ -210,18 +210,7 @@ void Controller::readButtons() {
       }
     }
   }
-  
-}
-
-void Controller::printButtons() {
-  #ifdef DEBUG_BUTTONS
-    Serial.print(F("Status: "));
-    Serial.print(sp.status);
-    Serial.print(F("\tHoldDist: "));
-    Serial.print(sp.holdDistance);
-    Serial.print(F("\tHoldAlt: "));
-    Serial.println(sp.holdAltitude);
-  #endif
+ 
 }
 
 void Controller::updateLeds() {
@@ -234,6 +223,6 @@ void Controller::getControllerData() {
   readJoystick1();
   readJoystick2();
   readButtons();
-  printButtons();
+  printSetpoints();
   updateLeds();
 }
