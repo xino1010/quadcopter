@@ -17,8 +17,8 @@
   //#define DEBUG_KALMAN
 #endif
 
-//#define NORMAL_MODE
-#define CALIBRATION_MODE
+#define NORMAL_MODE
+//#define CALIBRATION_MODE
 
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
@@ -40,7 +40,7 @@
 #define PIN_MOTOR_BR 9
 #define ZERO_VALUE_MOTOR 1000
 #define MIN_VALUE_MOTOR 1100
-#define MAX_VALUE_MOTOR 1900
+#define MAX_VALUE_MOTOR 1800
 
 // RADIO
 #define THROTTLE_MIN 512
@@ -51,14 +51,14 @@
 #define PITCH_RMAX 1024
 #define PITCH_WMIN -30
 #define PITCH_WMAX 30
-#define ROFFSET_PITCH 5
+#define ROFFSET_PITCH 20
 // R_ROLL
 #define ROLL_RMIN 0
 #define ROLL_RMEDIUM 512
 #define ROLL_RMAX 1024
 #define ROLL_WMIN -30
 #define ROLL_WMAX 30
-#define ROFFSET_ROLL 5
+#define ROFFSET_ROLL 20
 
 const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define NFR24L01_CE 8
@@ -271,6 +271,7 @@ void updateRadioInfo() {
 
     // R_THROTTLE
     throttle = map(radioData[0], THROTTLE_MIN, THROTTLE_MAX, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
+    throttle = constrain(throttle, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
     // R_PITCH
     if (radioData[1] >= PITCH_RMEDIUM - ROFFSET_PITCH && radioData[1] <= PITCH_RMEDIUM + ROFFSET_PITCH) {
       pidPitchSetpoint = 0;
@@ -316,7 +317,26 @@ void updateRadioInfo() {
     else {
       cm = CONTROL_MODE_ACRO;
     }
+
+    #ifdef DEBUG_RADIO
+      Serial.print(F("Throttle: "));
+      Serial.print(throttle);
+      Serial.print(F("\tPitch: "));
+      Serial.print(pidPitchSetpoint);
+      Serial.print(F("\tRoll: "));
+      Serial.print(pidRollSetpoint);
+      //Serial.print(F("\tYaw: "));
+      //Serial.print(pidYawSetpoint);
+      Serial.print(F("\tCM: "));
+      Serial.println(cm);
+    #endif
+    
     disableLED();
+  }
+  else {
+    #ifdef DEBUG_RADIO
+      //Serial.println(F("There is not radio data"));
+    #endif
   }
 }
 
@@ -713,7 +733,7 @@ void countDown() {
     enableLED();
   }
   #ifdef DEBUG
-    Serial.println();
+    Serial.println(F("0!"));
     Serial.println(F("Quadcopter initialized"));
   #endif
 }
