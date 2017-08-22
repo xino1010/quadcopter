@@ -160,13 +160,13 @@ void Controller::readResetButton() {
 
 // CONTROL
 void Controller::readJoystick1() {
-  sp.throttle = MAX_ANALOG_VALUE - analogRead(j1.pinY);
-  sp.yaw = analogRead(j1.pinX);
+  sp.throttle = MAX_ANALOG_VALUE - analogRead(j1.pinX);
+  sp.yaw = MAX_ANALOG_VALUE - analogRead(j1.pinY);
 }
 
 void Controller::readJoystick2() {
-  sp.roll = analogRead(j2.pinX);
-  sp.pitch = MAX_ANALOG_VALUE - analogRead(j2.pinY);
+  sp.pitch = MAX_ANALOG_VALUE - analogRead(j2.pinX);
+  sp.roll = MAX_ANALOG_VALUE - analogRead(j2.pinY);
 }
 
 void Controller::readButtons() {
