@@ -9,8 +9,8 @@
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
-  //#define DEBUG_IMU
-  #define DEBUG_MOTORS
+  #define DEBUG_IMU
+  //#define DEBUG_MOTORS
   //#define DEBUG_RADIO
   //#define DEBUG_PID
   //#define DEBUG_SONAR
@@ -361,7 +361,9 @@ void updatePIDInfo() {
         Serial.print(F("\tkI: "));
         Serial.print(pidPitch.GetKi());
         Serial.print(F("\tkD: "));
-        Serial.println(pidPitch.GetKd());
+        Serial.print(pidPitch.GetKd());
+        Serial.print(F("\tReset: "));
+        Serial.println(resetPid);
       #endif
     #endif
 
@@ -373,7 +375,9 @@ void updatePIDInfo() {
         Serial.print(F("\tkI: "));
         Serial.print(pidRoll.GetKi());
         Serial.print(F("\tkD: "));
-        Serial.println(pidRoll.GetKd());
+        Serial.print(pidRoll.GetKd());
+        Serial.print(F("\tReset: "));
+        Serial.println(resetPid);
       #endif
     #endif
 
@@ -670,7 +674,7 @@ void initVars() {
   #endif
 
   #ifdef CALIBRATION_MODE
-    throttle = 1250;
+    throttle = 1200;
     cm = CONTROL_MODE_ACRO;
   #endif
 
@@ -726,10 +730,10 @@ void setup() {
 
   enableLED();
   initVars();
-  initMPU6050();
-  calculateOffsets();
   connectMotors();
   armMotors();
+  initMPU6050();
+  calculateOffsets();
   countDown();
   disableLED();
 
