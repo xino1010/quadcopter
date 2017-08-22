@@ -10,15 +10,15 @@
 #ifdef DEBUG
   //#define DEBUG_BMP
   //#define DEBUG_IMU
-  //#define DEBUG_MOTORS
+  #define DEBUG_MOTORS
   //#define DEBUG_RADIO
-  #define DEBUG_PID
+  //#define DEBUG_PID
   //#define DEBUG_SONAR
   //#define DEBUG_KALMAN
 #endif
 
-#define NORMAL_MODE
-//#define CALIBRATION_MODE
+//#define NORMAL_MODE
+#define CALIBRATION_MODE
 
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
@@ -354,7 +354,7 @@ void updatePIDInfo() {
     }
 
     #ifdef CALIBRATION_PITCH
-      pidPitch.SetTunings(radioPIDData[0], radioPIDData[1], radioPIDData[2]);
+      pidPitch.SetTunings(radioPIDdata[0], radioPIDdata[1], radioPIDdata[2]);
       #ifdef DEBUG_PID
         Serial.print(F("PITCH - kP: "));
         Serial.print(pidPitch.GetKp());
@@ -366,7 +366,7 @@ void updatePIDInfo() {
     #endif
 
     #ifdef CALIBRATION_ROLL
-      pidRoll.SetTunings(radioPIDData[0], radioPIDData[1], radioPIDData[2]);
+      pidRoll.SetTunings(radioPIDdata[0], radioPIDdata[1], radioPIDdata[2]);
       #ifdef DEBUG_PID
         Serial.print(F("ROLL - kP: "));
         Serial.print(pidRoll.GetKp());
