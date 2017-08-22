@@ -10,9 +10,9 @@
 #ifdef DEBUG
   //#define DEBUG_BMP
   //#define DEBUG_IMU
-  #define DEBUG_MOTORS
+  //#define DEBUG_MOTORS
   //#define DEBUG_RADIO
-  //#define DEBUG_PID
+  #define DEBUG_PID
   //#define DEBUG_SONAR
   //#define DEBUG_KALMAN
 #endif
@@ -354,53 +354,26 @@ void updatePIDInfo() {
     }
 
     #ifdef CALIBRATION_PITCH
-      // Change K's of pid
-      if (resetPid == HIGH) {
-        // Reset PID's
-      }
+      pidPitch.SetTunings(radioPIDData[0], radioPIDData[1], radioPIDData[2]);
       #ifdef DEBUG_PID
-        Serial.print(F("kP: "));
-        Serial.print(pidPitch->getKp());
+        Serial.print(F("PITCH - kP: "));
+        Serial.print(pidPitch.GetKp());
         Serial.print(F("\tkI: "));
-        Serial.print(pidPitch->getKi());
+        Serial.print(pidPitch.GetKi());
         Serial.print(F("\tkD: "));
-        Serial.print(pidPitch->getKd());
-        Serial.print(F("\tReset: "));
-        Serial.println(resetPid);
+        Serial.println(pidPitch.GetKd());
       #endif
     #endif
 
     #ifdef CALIBRATION_ROLL
-      pidRoll->setKp(radioPIDdata[0]);
-      pidRoll->setKi(radioPIDdata[1]);
-      pidRoll->setKd(radioPIDdata[2]);
-      if (resetPid == HIGH) {
-        pidRoll->reset();
-      }
+      pidRoll.SetTunings(radioPIDData[0], radioPIDData[1], radioPIDData[2]);
       #ifdef DEBUG_PID
-        Serial.print(F("kP: "));
-        Serial.print(pidRoll->getKp());
+        Serial.print(F("ROLL - kP: "));
+        Serial.print(pidRoll.GetKp());
         Serial.print(F("\tkI: "));
-        Serial.print(pidRoll->getKi());
+        Serial.print(pidRoll.GetKi());
         Serial.print(F("\tkD: "));
-        Serial.println(pidRoll->getKd());
-      #endif
-    #endif
-
-    #ifdef CALIBRATION_YAW
-      pidYaw->setKp(radioPIDdata[0]);
-      pidYaw->setKi(radioPIDdata[1]);
-      pidYaw->setKd(radioPIDdata[2]);
-      if (resetPid == HIGH) {
-        pidYaw->reset();
-      }
-      #ifdef DEBUG_PID
-        Serial.print(F("kP: "));
-        Serial.print(pidYaw->getKp());
-        Serial.print(F("\tkI: "));
-        Serial.print(pidYaw->getKi());
-        Serial.print(F("\tkD: "));
-        Serial.println(pidYaw->getKd());
+        Serial.println(pidRoll.GetKd());
       #endif
     #endif
 
@@ -683,10 +656,10 @@ void initVars() {
   // PID
   pidPitch.SetOutputLimits(PITCH_PID_MIN, PITCH_PID_MAX);
   pidPitch.SetMode(AUTOMATIC);
-  pidPitch.SetSampleTime(10);
+  pidPitch.SetSampleTime(5);
   pidRoll.SetOutputLimits(ROLL_PID_MIN, ROLL_PID_MAX);
   pidRoll.SetMode(AUTOMATIC);
-  pidRoll.SetSampleTime(10);
+  pidRoll.SetSampleTime(5);
 
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);

@@ -3,8 +3,8 @@
 #include <nRF24L01.h>
 #include "RF24.h"
 
-#define NORMAL_MODE
-//#define CALIBRATION_MODE
+//#define NORMAL_MODE
+#define CALIBRATION_MODE
 
 #define DEBUG
 #ifdef DEBUG
@@ -28,7 +28,7 @@
 #define NFR24L01_CSN 10
 
 // CALIBRATION
-#define BUTTON_RESET 5
+#define BUTTON_RESET 8
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
 #define POTENTIOMETRE_KD A3
@@ -45,13 +45,12 @@ class Controller {
 
   private:
 
-    // Milli
     float MIN_KP = 0;
-    float MAX_KP = 500;
+    float MAX_KP = 4;
     float MIN_KI = 0;
-    float MAX_KI = 10;
+    float MAX_KI = 1;
     float MIN_KD = 0;
-    float MAX_KD = 1000;
+    float MAX_KD = 100;
 
     float mapFloat(float x, float in_min, float in_max, float out_min, float out_max);
 
