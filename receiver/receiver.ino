@@ -9,7 +9,7 @@
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
-  #define DEBUG_IMU
+  //#define DEBUG_IMU
   //#define DEBUG_MOTORS
   //#define DEBUG_RADIO
   //#define DEBUG_PID
@@ -17,8 +17,8 @@
   //#define DEBUG_KALMAN
 #endif
 
-//#define NORMAL_MODE
-#define CALIBRATION_MODE
+#define NORMAL_MODE
+//#define CALIBRATION_MODE
 
 #ifdef CALIBRATION_MODE
   #define CALIBRATION_PITCH
@@ -40,7 +40,7 @@
 #define PIN_MOTOR_BR 9
 #define ZERO_VALUE_MOTOR 1000
 #define MIN_VALUE_MOTOR 1100
-#define MAX_VALUE_MOTOR 1800
+#define MAX_VALUE_MOTOR 1500
 
 // RADIO
 #define THROTTLE_MIN 512
@@ -103,9 +103,9 @@ PID pidPitch(&pidPitchIn, &pidPitchOut, &pidPitchSetpoint, KP_PITCH, KI_PITCH, K
 // Roll
 #define ROLL_PID_MIN -45 
 #define ROLL_PID_MAX 45
-float KP_ROLL = 0;
-float KI_ROLL = 0;
-float KD_ROLL = 0;
+float KP_ROLL = KP_PITCH;
+float KI_ROLL = KI_PITCH;
+float KD_ROLL = KD_PITCH;
 double pidRollIn, pidRollOut, pidRollSetpoint = 0;
 PID pidRoll(&pidRollIn, &pidRollOut, &pidRollSetpoint, KP_ROLL, KI_ROLL, KD_ROLL, DIRECT);
 
