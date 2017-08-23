@@ -3,8 +3,8 @@
 #include <nRF24L01.h>
 #include "RF24.h"
 
-//#define NORMAL_MODE
-#define CALIBRATION_MODE
+#define NORMAL_MODE
+//#define CALIBRATION_MODE
 
 #define DEBUG
 #ifdef DEBUG

@@ -9,7 +9,7 @@
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
-  //#define DEBUG_IMU
+  #define DEBUG_IMU
   //#define DEBUG_MOTORS
   //#define DEBUG_RADIO
   //#define DEBUG_PID
@@ -78,7 +78,7 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 // IMU
 #define HEAT_OFFSETS 1000
 #define READS_OFFSETS 500
-#define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead
+//#define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead
 
 // LED
 #define LED_PIN 7
@@ -94,7 +94,7 @@ Adafruit_BMP085 bmp;
 // Pitch
 #define PITCH_PID_MIN -45 
 #define PITCH_PID_MAX 45
-float KP_PITCH = 1;
+float KP_PITCH = 3;
 float KI_PITCH = 0;
 float KD_PITCH = 0;
 double pidPitchIn, pidPitchOut, pidPitchSetpoint = 0;
@@ -524,7 +524,6 @@ void getAngles(bool useOffsets) {
     // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
     if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
       kalmanY.setAngle(pitch);
-      compAngleY = pitch;
       kalAngleY = pitch;
       gyroYangle = pitch;
     }
@@ -660,10 +659,10 @@ void initVars() {
   // PID
   pidPitch.SetOutputLimits(PITCH_PID_MIN, PITCH_PID_MAX);
   pidPitch.SetMode(AUTOMATIC);
-  pidPitch.SetSampleTime(5);
+  pidPitch.SetSampleTime(10);
   pidRoll.SetOutputLimits(ROLL_PID_MIN, ROLL_PID_MAX);
   pidRoll.SetMode(AUTOMATIC);
-  pidRoll.SetSampleTime(5);
+  pidRoll.SetSampleTime(10);
 
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
