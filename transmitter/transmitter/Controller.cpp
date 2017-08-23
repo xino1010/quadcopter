@@ -47,6 +47,12 @@ Controller::Controller() {
   buttonHoldDistance = 0;
   buttonHoldAltitude = 0;
 
+  // LCD
+  lcd = new LiquidCrystal_I2C(0x3F, 16, 2);  // Inicia el LCD en la dirección 0x3F, con 16 caracteres y 2 líneas
+  lcd->begin();
+  lcd->backlight();
+  lastShowAngles = millis();
+
   #ifdef DEBUG
     Serial.println(F("Controller initialized"));
   #endif
@@ -161,7 +167,7 @@ void Controller::readResetButton() {
 // CONTROL
 void Controller::readJoystick1() {
   sp.throttle = MAX_ANALOG_VALUE - analogRead(j1.pinX);
-  sp.yaw = MAX_ANALOG_VALUE - analogRead(j1.pinY);
+  sp.yaw = analogRead(j1.pinY);
 }
 
 void Controller::readJoystick2() {
@@ -226,3 +232,22 @@ void Controller::getControllerData() {
   printSetpoints();
   updateLeds();
 }
+
+// LCD
+void Controller::showAngles() {
+  if (millis() - lastShowAngles > REFRESH_LCD) {
+    lastShowAngles = millis();
+    lcd->clear();
+    lcd->setCursor(0, 0);
+    lcd->print("TH: ");
+    lcd->print(map(sp.throttle, THROTTLE_MIN, THROTTLE_MAX, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
+    lcd->print(" YW: ");
+    lcd->print(map(sp.yaw, YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX));
+    lcd->setCursor(0, 1);
+    lcd->print("PC: ");
+    lcd->print(map(sp.pitch, PITCH_RMIN, PITCH_RMAX, PITCH_WMIN, PITCH_WMAX));
+    lcd->print(" RL: ");
+    lcd->print(map(sp.roll, ROLL_RMIN, ROLL_RMAX, ROLL_WMIN, ROLL_WMAX));
+  }
+}
+

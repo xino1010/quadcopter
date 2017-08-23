@@ -2,6 +2,8 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include "RF24.h"
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
 
 #define NORMAL_MODE
 //#define CALIBRATION_MODE
@@ -9,7 +11,7 @@
 #define DEBUG
 #ifdef DEBUG
   #ifdef NORMAL_MODE
-    #define DEBUG_JOYSTICKS
+    //#define DEBUG_JOYSTICKS
   #endif
   //#define DEBUG_RADIO
   #ifdef CALIBRATION_MODE
@@ -40,6 +42,31 @@
 #define BUTTON_STATUS 3
 #define BUTTON_HOLD_DISTANCE 5
 #define BUTTON_HOLD_ALTITUDE 7
+
+// LCD
+#define REFRESH_LCD 250 // ms
+
+// IMU
+#define PITCH_RMIN 0
+#define PITCH_RMEDIUM 512
+#define PITCH_RMAX 1024
+#define PITCH_WMIN -30
+#define PITCH_WMAX 30
+#define ROLL_RMIN 0
+#define ROLL_RMEDIUM 512
+#define ROLL_RMAX 1024
+#define ROLL_WMIN -30
+#define ROLL_WMAX 30
+#define YAW_RMIN 0
+#define YAW_RMEDIUM 512
+#define YAW_RMAX 1024
+#define YAW_WMIN 135
+#define YAW_WMAX -135
+#define ZERO_VALUE_MOTOR 1000
+#define MIN_VALUE_MOTOR 1100
+#define MAX_VALUE_MOTOR 1500
+#define THROTTLE_MIN 512
+#define THROTTLE_MAX 1023
 
 class Controller {
 
@@ -109,6 +136,10 @@ class Controller {
     void readButtons();
     void updateLeds();
 
+    // LCD
+    LiquidCrystal_I2C *lcd;
+    unsigned long lastShowAngles;
+
   public:
     Controller();
 
@@ -125,4 +156,7 @@ class Controller {
     // CONTROL
     void calibrateJoysticks();
     void getControllerData();
+
+    // LCD
+    void showAngles();
 };

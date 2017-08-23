@@ -49,8 +49,8 @@
 #define PITCH_RMIN 0
 #define PITCH_RMEDIUM 512
 #define PITCH_RMAX 1024
-#define PITCH_WMIN 30
-#define PITCH_WMAX -30
+#define PITCH_WMIN -30
+#define PITCH_WMAX 30
 #define ROFFSET_PITCH 20
 // R_ROLL
 #define ROLL_RMIN 0
@@ -295,7 +295,6 @@ void updateRadioInfo() {
 
     // R_THROTTLE
     throttle = map(radioData[0], THROTTLE_MIN, THROTTLE_MAX, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
-    throttle = constrain(throttle, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
     // R_PITCH
     if (radioData[1] >= PITCH_RMEDIUM - ROFFSET_PITCH && radioData[1] <= PITCH_RMEDIUM + ROFFSET_PITCH) {
       pidPitchSetpoint = 0;
@@ -516,13 +515,16 @@ void getAngles(bool useOffsets) {
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-      anglePitch = ypr[1] * 180/M_PI; // Pitch
-      angleRoll = ypr[2] * 180/M_PI; // Roll
-      angleYaw = ypr[0] * 180/M_PI; // Roll
+      anglePitch = ypr[1] * 180 / M_PI; // Pitch
+      angleRoll = ypr[2] * 180 / M_PI; // Roll
+      angleYaw = ypr[0] * 180 / M_PI; // Roll
     
       if (useOffsets) {
         anglePitch += offsetPitch;
         angleRoll += offsetRoll;
+        if (angleYaw < 0) {
+          angleYaw = 360 + angleYaw;
+        }
         angleYaw += offsetYaw;
       }
     

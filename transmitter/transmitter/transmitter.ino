@@ -17,6 +17,7 @@ void loop() {
   #ifdef NORMAL_MODE
     c->getControllerData();
     c->sendRadioInfo();
+    c->showAngles();
   #endif
 
   #ifdef CALIBRATION_MODE
