@@ -10,7 +10,7 @@
 #define DEBUG
 #ifdef DEBUG
   //#define DEBUG_BMP
-  #define DEBUG_IMU
+  //#define DEBUG_IMU
   //#define DEBUG_MOTORS
   //#define DEBUG_RADIO
   //#define DEBUG_PID
@@ -49,8 +49,8 @@
 #define PITCH_RMIN 0
 #define PITCH_RMEDIUM 512
 #define PITCH_RMAX 1024
-#define PITCH_WMIN -30
-#define PITCH_WMAX 30
+#define PITCH_WMIN 30
+#define PITCH_WMAX -30
 #define ROFFSET_PITCH 20
 // R_ROLL
 #define ROLL_RMIN 0
@@ -59,6 +59,13 @@
 #define ROLL_WMIN -30
 #define ROLL_WMAX 30
 #define ROFFSET_ROLL 20
+// R_YAW
+#define YAW_RMIN 0
+#define YAW_RMEDIUM 512
+#define YAW_RMAX 1024
+#define YAW_WMIN 135
+#define YAW_WMAX -135
+#define ROFFSET_YAW 20
 
 const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define NFR24L01_CE 8
@@ -76,8 +83,8 @@ const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
 #define DESIRED_DISTANCE 200
 
 // IMU
-#define HEAT_MPU_SECONDS 12000
-#define OFFSETS_MPU_SECONDS 2500
+#define HEAT_MPU_SECONDS 15000
+#define OFFSETS_MPU_SECONDS 5000
 #define INTERRUPT_PIN 2  // use pin 2 on Arduino Uno & most boards
 
 // LED
@@ -108,6 +115,15 @@ float KI_ROLL = KI_PITCH;
 float KD_ROLL = KD_PITCH;
 double pidRollIn, pidRollOut, pidRollSetpoint = 0;
 PID pidRoll(&pidRollIn, &pidRollOut, &pidRollSetpoint, KP_ROLL, KI_ROLL, KD_ROLL, DIRECT);
+
+// Yaw
+#define YAW_PID_MIN -150 
+#define YAW_PID_MAX 150
+float KP_YAW = 2;
+float KI_YAW = 0;
+float KD_YAW = 0;
+double pidYawIn, pidYawOut, pidYawSetpoint = 0;
+PID pidYaw(&pidYawIn, &pidYawOut, &pidYawSetpoint, KP_YAW, KI_YAW, KD_YAW, DIRECT);
 
 // MOTORS
 int velocityFL, velocityFR, velocityBL, velocityBR;
@@ -204,8 +220,10 @@ void calculateVelocities() {
 
   pidPitchIn = anglePitch;
   pidRollIn = angleRoll;
+  pidYawIn = angleYaw;
   pidPitch.Compute();
   pidRoll.Compute();
+  pidYaw.Compute();
 
   switch (cm) {
     case CONTROL_MODE_OFF:
@@ -216,10 +234,10 @@ void calculateVelocities() {
       velocityBR = ZERO_VALUE_MOTOR;
       break;
     case CONTROL_MODE_ACRO:
-      velocityFL = throttle + pidPitchOut + pidRollOut;
-      velocityFR = throttle + pidPitchOut - pidRollOut;
-      velocityBL = throttle - pidPitchOut + pidRollOut;
-      velocityBR = throttle - pidPitchOut - pidRollOut;
+      velocityFL = throttle + pidPitchOut + pidRollOut - pidYawOut;
+      velocityFR = throttle + pidPitchOut - pidRollOut + pidYawOut;
+      velocityBL = throttle - pidPitchOut + pidRollOut + pidYawOut;
+      velocityBR = throttle - pidPitchOut - pidRollOut - pidYawOut;
 
       velocityFL = constrain(velocityFL, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
       velocityFR = constrain(velocityFR, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR);
@@ -291,6 +309,13 @@ void updateRadioInfo() {
     }
     else {
       pidRollSetpoint = map(radioData[2], ROLL_RMIN, ROLL_RMAX, ROLL_WMIN, ROLL_WMAX);
+    }
+    // R_YAW
+    if (radioData[3] >= YAW_RMEDIUM - ROFFSET_YAW && radioData[3] <= YAW_RMEDIUM + ROFFSET_YAW) {
+      pidYawSetpoint = 0;
+    }
+    else {
+      pidYawSetpoint = map(radioData[3], YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX);
     }
 
     // Power off motors
@@ -377,6 +402,20 @@ void updatePIDInfo() {
       pidRoll.SetTunings(radioPIDdata[0], radioPIDdata[1], radioPIDdata[2]);
       #ifdef DEBUG_PID
         Serial.print(F("ROLL - kP: "));
+        Serial.print(pidRoll.GetKp());
+        Serial.print(F("\t\tkI: "));
+        Serial.print(pidRoll.GetKi());
+        Serial.print(F("\t\tkD: "));
+        Serial.print(pidRoll.GetKd());
+        Serial.print(F("\t\tReset: "));
+        Serial.println(resetPid);
+      #endif
+    #endif
+
+    #ifdef CALIBRATION_YAW
+      pidYaw.SetTunings(radioPIDdata[0], radioPIDdata[1], radioPIDdata[2]);
+      #ifdef DEBUG_PID
+        Serial.print(F("YAW - kP: "));
         Serial.print(pidRoll.GetKp());
         Serial.print(F("\t\tkI: "));
         Serial.print(pidRoll.GetKi());
@@ -480,9 +519,6 @@ void getAngles(bool useOffsets) {
       anglePitch = ypr[1] * 180/M_PI; // Pitch
       angleRoll = ypr[2] * 180/M_PI; // Roll
       angleYaw = ypr[0] * 180/M_PI; // Roll
-      if (angleYaw < 0) {
-        angleYaw += 360.0;
-      }
     
       if (useOffsets) {
         anglePitch += offsetPitch;
@@ -513,20 +549,24 @@ void calculateOffsets() {
     Serial.println(F("Calculating offsets for mpu6050..."));
   #endif
   currentTime = millis();
-  int reads = 0;
+  float reads = 0;
   while (millis() - currentTime < OFFSETS_MPU_SECONDS) {
     getAngles(false);
     offsetPitch -= anglePitch;
     offsetRoll -= angleRoll;
+    offsetYaw -= angleYaw;
     reads++;
   }
   offsetPitch /= (float) reads;
   offsetRoll /= (float) reads;
+  offsetYaw /= (float) reads;
   #ifdef DEBUG_IMU
     Serial.print(F("offsetPitch: "));
     Serial.print(offsetPitch);
     Serial.print(F("\toffsetRoll: "));
-    Serial.println(offsetRoll);
+    Serial.print(offsetRoll);
+    Serial.print(F("\toffsetYaw: "));
+    Serial.println(offsetYaw);
   #endif
 }
 
@@ -622,6 +662,9 @@ void initVars() {
   pidRoll.SetOutputLimits(ROLL_PID_MIN, ROLL_PID_MAX);
   pidRoll.SetMode(AUTOMATIC);
   pidRoll.SetSampleTime(10);
+  pidYaw.SetOutputLimits(YAW_PID_MIN, YAW_PID_MAX);
+  pidYaw.SetMode(AUTOMATIC);
+  pidYaw.SetSampleTime(10);
 
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
