@@ -6,9 +6,9 @@ void setup() {
   #ifdef DEBUG
     Serial.begin(38400);
     while (!Serial){}
-    delay(1000);
+    delay(500);
   #endif
-
+  
   c = new Controller();
 }
 
@@ -26,5 +26,5 @@ void loop() {
     c->sendCalibrationData();
   #endif
 
-	delay(25);
+	delay(10);
 }

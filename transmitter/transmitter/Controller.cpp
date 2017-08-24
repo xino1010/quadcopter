@@ -1,14 +1,6 @@
 #include "Controller.h"
 
 Controller::Controller() {
-  // TRANSMITTER
-  sp.throttle = 0;
-  sp.pitch = MEDIUM_ANALOG_VALUE;
-  sp.roll = MEDIUM_ANALOG_VALUE;
-  sp.yaw = MEDIUM_ANALOG_VALUE;
-  sp.status = LOW;
-  sp.holdDistance = LOW;
-  sp.holdAltitude = LOW;
 
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
@@ -19,39 +11,53 @@ Controller::Controller() {
   radio->stopListening();
 
   // CALIBRATION
-  cd.kP = MIN_KP;
-  cd.kI = MIN_KI;
-  cd.kD = MIN_KD;
-  cd.reset =  LOW;
-  lastButtonReset = LOW;
-  buttonReset = 0;
-  pinMode(BUTTON_RESET, INPUT);
+  #ifdef CALIBRATION_MODE
+    cd.kP = MIN_KP;
+    cd.kI = MIN_KI;
+    cd.kD = MIN_KD;
+    cd.reset =  LOW;
+    lastButtonReset = LOW;
+    buttonReset = 0;
+    pinMode(LED_RESET, OUTPUT);
+    pinMode(BUTTON_RESET, INPUT);
+  #endif
 
-  // CONTROL
-  pinMode(LED_STATUS, OUTPUT);
-  pinMode(LED_HOLD_DISTANCE, OUTPUT);
-  pinMode(LED_HOLD_ALTITUDE, OUTPUT);
-  pinMode(BUTTON_STATUS, INPUT);
-  pinMode(BUTTON_HOLD_DISTANCE, INPUT);
-  pinMode(BUTTON_HOLD_ALTITUDE, INPUT);
-
-  j1.pinX = A0;
-  j1.pinY = A1;
-  j2.pinX = A2;
-  j2.pinY = A3;
-
-  lastButtonStatus = LOW;
-  lastButtonHoldDistance = LOW;
-  lastButtonHoldAltitude = LOW;
-  buttonStatus = 0;
-  buttonHoldDistance = 0;
-  buttonHoldAltitude = 0;
-
-  // LCD
-  lcd = new LiquidCrystal_I2C(0x3F, 16, 2);  // Inicia el LCD en la dirección 0x3F, con 16 caracteres y 2 líneas
-  lcd->begin();
-  lcd->backlight();
-  lastShowAngles = millis();
+  #ifdef NORMAL_MODE
+    // TRANSMITTER
+    sp.throttle = 0;
+    sp.pitch = MEDIUM_ANALOG_VALUE;
+    sp.roll = MEDIUM_ANALOG_VALUE;
+    sp.yaw = MEDIUM_ANALOG_VALUE;
+    sp.status = LOW;
+    sp.holdDistance = LOW;
+    sp.holdAltitude = LOW;
+    
+    // CONTROL
+    pinMode(LED_STATUS, OUTPUT);
+    pinMode(LED_HOLD_DISTANCE, OUTPUT);
+    pinMode(LED_HOLD_ALTITUDE, OUTPUT);
+    pinMode(BUTTON_STATUS, INPUT);
+    pinMode(BUTTON_HOLD_DISTANCE, INPUT);
+    pinMode(BUTTON_HOLD_ALTITUDE, INPUT);
+  
+    j1.pinX = A0;
+    j1.pinY = A1;
+    j2.pinX = A2;
+    j2.pinY = A3;
+  
+    lastButtonStatus = LOW;
+    lastButtonHoldDistance = LOW;
+    lastButtonHoldAltitude = LOW;
+    buttonStatus = 0;
+    buttonHoldDistance = 0;
+    buttonHoldAltitude = 0;
+  
+    // LCD
+    lcd = new LiquidCrystal_I2C(0x3F, 16, 2);  // Inicia el LCD en la dirección 0x3F, con 16 caracteres y 2 líneas
+    lcd->begin();
+    lcd->backlight();
+    lastShowAngles = millis();
+  #endif
 
   #ifdef DEBUG
     Serial.println(F("Controller initialized"));
@@ -124,11 +130,11 @@ void Controller::readPotentiometers() {
 
   #ifdef DEBUG_PID_VALUES
     Serial.print(F("kP: "));
-    Serial.print(cd.kP, 4);
+    Serial.print(cd.kP, 3);
     Serial.print(F("\tkI: "));
-    Serial.print(cd.kI, 4);
+    Serial.print(cd.kI, 3);
     Serial.print(F("\tkD: "));
-    Serial.print(cd.kD, 4);
+    Serial.print(cd.kD, 3);
   #endif
 }
 
@@ -154,8 +160,9 @@ void Controller::readResetButton() {
   if (currentButtonReset != lastButtonReset) {
     lastButtonReset = currentButtonReset;
     buttonReset++;
-    if (buttonReset % 4 == 0) {
+    if (buttonReset % 2 == 0) {
       cd.reset = !cd.reset;
+      digitalWrite(LED_RESET, cd.reset);
     }
   }
   #ifdef DEBUG_PID_VALUES

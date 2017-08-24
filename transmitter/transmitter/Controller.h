@@ -5,8 +5,8 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define NORMAL_MODE
-//#define CALIBRATION_MODE
+//#define NORMAL_MODE
+#define CALIBRATION_MODE
 
 #define DEBUG
 #ifdef DEBUG
@@ -30,6 +30,7 @@
 #define NFR24L01_CSN 10
 
 // CALIBRATION
+#define LED_RESET A5
 #define BUTTON_RESET 8
 #define POTENTIOMETRE_KP A1
 #define POTENTIOMETRE_KI A2
@@ -77,7 +78,7 @@ class Controller {
     float MIN_KI = 0;
     float MAX_KI = 1;
     float MIN_KD = 0;
-    float MAX_KD = 100;
+    float MAX_KD = 5;
 
     float mapFloat(float x, float in_min, float in_max, float out_min, float out_max);
 

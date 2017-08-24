@@ -1,3 +1,6 @@
+#ifndef QUAD
+#define QUAD
+
 #include <Adafruit_BMP085.h>
 #include <Servo.h>
 #include <nRF24L01.h>
@@ -21,7 +24,7 @@
 //#define CALIBRATION_MODE
 
 #ifdef CALIBRATION_MODE
-  #define CALIBRATION_PITCH
+  //#define CALIBRATION_PITCH
   //#define CALIBRATION_ROLL
   //#define CALIBRATION_YAW
 #endif
@@ -40,7 +43,7 @@
 #define PIN_MOTOR_BR 9
 #define ZERO_VALUE_MOTOR 1000
 #define MIN_VALUE_MOTOR 1100
-#define MAX_VALUE_MOTOR 1500
+#define MAX_VALUE_MOTOR 1900
 
 // RADIO
 #define THROTTLE_MIN 512
@@ -49,8 +52,8 @@
 #define PITCH_RMIN 0
 #define PITCH_RMEDIUM 512
 #define PITCH_RMAX 1024
-#define PITCH_WMIN -30
-#define PITCH_WMAX 30
+#define PITCH_WMIN 30
+#define PITCH_WMAX -30
 #define ROFFSET_PITCH 20
 // R_ROLL
 #define ROLL_RMIN 0
@@ -63,8 +66,8 @@
 #define YAW_RMIN 0
 #define YAW_RMEDIUM 512
 #define YAW_RMAX 1024
-#define YAW_WMIN 135
-#define YAW_WMAX -135
+#define YAW_WMIN 160
+#define YAW_WMAX -160
 #define ROFFSET_YAW 20
 
 const byte radioAddress[5] = {'c', 'a', 'n', 'a', 'l'};
@@ -101,9 +104,9 @@ Adafruit_BMP085 bmp;
 // Pitch
 #define PITCH_PID_MIN -45 
 #define PITCH_PID_MAX 45
-float KP_PITCH = 3;
-float KI_PITCH = 0;
-float KD_PITCH = 0;
+float KP_PITCH = 3.32;
+float KI_PITCH = 0.70;
+float KD_PITCH = 0.65;
 double pidPitchIn, pidPitchOut, pidPitchSetpoint = 0;
 PID pidPitch(&pidPitchIn, &pidPitchOut, &pidPitchSetpoint, KP_PITCH, KI_PITCH, KD_PITCH, DIRECT);
 
@@ -117,11 +120,11 @@ double pidRollIn, pidRollOut, pidRollSetpoint = 0;
 PID pidRoll(&pidRollIn, &pidRollOut, &pidRollSetpoint, KP_ROLL, KI_ROLL, KD_ROLL, DIRECT);
 
 // Yaw
-#define YAW_PID_MIN -150 
-#define YAW_PID_MAX 150
-float KP_YAW = 2;
-float KI_YAW = 0;
-float KD_YAW = 0;
+#define YAW_PID_MIN -180 
+#define YAW_PID_MAX 180
+float KP_YAW = 0;//1;
+float KI_YAW = 0;//0.015;
+float KD_YAW = 0;//1.2
 double pidYawIn, pidYawOut, pidYawSetpoint = 0;
 PID pidYaw(&pidYawIn, &pidYawOut, &pidYawSetpoint, KP_YAW, KI_YAW, KD_YAW, DIRECT);
 
@@ -141,6 +144,7 @@ int cm;
 // IMU
 float offsetPitch, offsetRoll, offsetYaw = 0;
 float anglePitch, angleRoll, angleYaw = 0;
+float lastAnglePitch, lastAngleRoll, lastAngleYaw = 0;
 MPU6050 mpu;
 bool dmpReady = false;  // set true if DMP init was successful
 uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
@@ -160,7 +164,7 @@ void dmpDataReady() {
 }
 
 void printFrequency() {
-  #ifdef DEBUGa
+  #ifdef DEBUG
     unsigned long elapsed_time = micros() - prev_time;
     Serial.print(F("Time:"));
     Serial.print((float) elapsed_time / 1000);
@@ -315,6 +319,20 @@ void updateRadioInfo() {
     }
     else {
       pidYawSetpoint = map(radioData[3], YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX);
+      /*
+      float rcYawIncrement = map(radioData[3], YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX);
+      if (angleYaw + rcYawIncrement > 180) {
+        float tmpYawAngle = 180 - (angleYaw + rcYawIncrement);
+        pidYawSetpoint = -180 - tmpYawAngle;
+      }
+      else if (angleYaw + rcYawIncrement < -180) {
+        float tmpYawAngle = -180 - (angleYaw + rcYawIncrement);
+        pidYawSetpoint = 180 - tmpYawAngle;
+      }
+      else {
+        pidYawSetpoint = angleYaw + rcYawIncrement;
+      }
+      */
     }
 
     // Power off motors
@@ -518,14 +536,24 @@ void getAngles(bool useOffsets) {
       anglePitch = ypr[1] * 180 / M_PI; // Pitch
       angleRoll = ypr[2] * 180 / M_PI; // Roll
       angleYaw = ypr[0] * 180 / M_PI; // Roll
-    
+
+      if (abs(anglePitch - lastAnglePitch) > 30) {
+        anglePitch = lastAnglePitch;
+      }
+      if (abs(angleRoll - lastAnglePitch) > 30) {
+        angleRoll = lastAnglePitch;
+      }
+      if (abs(angleYaw - lastAngleYaw) > 30) {
+        angleYaw = lastAngleYaw;
+      }
+      lastAnglePitch = anglePitch;
+      lastAngleRoll = angleRoll;
+      lastAngleYaw = angleYaw;
+          
       if (useOffsets) {
         anglePitch += offsetPitch;
         angleRoll += offsetRoll;
-        if (angleYaw < 0) {
-          angleYaw = 360 + angleYaw;
-        }
-        angleYaw += offsetYaw;
+        //angleYaw += offsetYaw;
       }
     
       #ifdef DEBUG_IMU
@@ -559,9 +587,9 @@ void calculateOffsets() {
     offsetYaw -= angleYaw;
     reads++;
   }
-  offsetPitch /= (float) reads;
-  offsetRoll /= (float) reads;
-  offsetYaw /= (float) reads;
+  offsetPitch /= reads;
+  offsetRoll /= reads;
+  offsetYaw /= reads;
   #ifdef DEBUG_IMU
     Serial.print(F("offsetPitch: "));
     Serial.print(offsetPitch);
@@ -584,7 +612,7 @@ void initMPU6050() {
     Serial.println(F("Testing device connections..."));
     Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
     // load and configure the DMP
-  Serial.println(F("Initializing DMP..."));
+    Serial.println(F("Initializing DMP..."));
   #endif
 
   devStatus = mpu.dmpInitialize();
@@ -660,13 +688,13 @@ void initVars() {
   // PID
   pidPitch.SetOutputLimits(PITCH_PID_MIN, PITCH_PID_MAX);
   pidPitch.SetMode(AUTOMATIC);
-  pidPitch.SetSampleTime(10);
+  pidPitch.SetSampleTime(5);
   pidRoll.SetOutputLimits(ROLL_PID_MIN, ROLL_PID_MAX);
   pidRoll.SetMode(AUTOMATIC);
-  pidRoll.SetSampleTime(10);
+  pidRoll.SetSampleTime(5);
   pidYaw.SetOutputLimits(YAW_PID_MIN, YAW_PID_MAX);
   pidYaw.SetMode(AUTOMATIC);
-  pidYaw.SetSampleTime(10);
+  pidYaw.SetSampleTime(5);
 
   // RADIO
   radio = new RF24(NFR24L01_CE, NFR24L01_CSN);
@@ -677,7 +705,7 @@ void initVars() {
   #endif
 
   #ifdef CALIBRATION_MODE
-    throttle = 1200;
+    throttle = 1400;
     cm = CONTROL_MODE_ACRO;
   #endif
 
@@ -756,7 +784,7 @@ void loop() {
   #endif
 
   // Read angles from sensor
-  getAngles(true);
+  getAngles(false);
 
   // Calculate velocities of each motor depending of ControlMode
   calculateVelocities();
@@ -768,3 +796,5 @@ void loop() {
 
   prev_time = micros();
 }
+
+#endif
