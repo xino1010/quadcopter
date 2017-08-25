@@ -18,6 +18,7 @@
   //#define DEBUG_RADIO
   //#define DEBUG_PID
   //#define DEBUG_SONAR
+  //#define DEBUG_FREQUENCY
 #endif
 
 #define NORMAL_MODE
@@ -25,7 +26,7 @@
 
 #ifdef CALIBRATION_MODE
   //#define CALIBRATION_PITCH
-  //#define CALIBRATION_ROLL
+  #define CALIBRATION_ROLL
   //#define CALIBRATION_YAW
 #endif
 
@@ -104,9 +105,9 @@ Adafruit_BMP085 bmp;
 // Pitch
 #define PITCH_PID_MIN -45 
 #define PITCH_PID_MAX 45
-float KP_PITCH = 3.32;
-float KI_PITCH = 0.70;
-float KD_PITCH = 0.65;
+float KP_PITCH = 3.022;
+float KI_PITCH = 0.705;
+float KD_PITCH = 0.435;
 double pidPitchIn, pidPitchOut, pidPitchSetpoint = 0;
 PID pidPitch(&pidPitchIn, &pidPitchOut, &pidPitchSetpoint, KP_PITCH, KI_PITCH, KD_PITCH, DIRECT);
 
@@ -164,7 +165,7 @@ void dmpDataReady() {
 }
 
 void printFrequency() {
-  #ifdef DEBUG
+  #ifdef DEBUG_FREQUENCY
     unsigned long elapsed_time = micros() - prev_time;
     Serial.print(F("Time:"));
     Serial.print((float) elapsed_time / 1000);
@@ -536,12 +537,18 @@ void getAngles(bool useOffsets) {
       anglePitch = ypr[1] * 180 / M_PI; // Pitch
       angleRoll = ypr[2] * 180 / M_PI; // Roll
       angleYaw = ypr[0] * 180 / M_PI; // Roll
+         
+      if (useOffsets) {
+        anglePitch += offsetPitch;
+        angleRoll += offsetRoll;
+        //angleYaw += offsetYaw;
+      }
 
       if (abs(anglePitch - lastAnglePitch) > 30) {
         anglePitch = lastAnglePitch;
       }
-      if (abs(angleRoll - lastAnglePitch) > 30) {
-        angleRoll = lastAnglePitch;
+      if (abs(angleRoll - lastAngleRoll) > 30) {
+        angleRoll = lastAngleRoll;
       }
       if (abs(angleYaw - lastAngleYaw) > 30) {
         angleYaw = lastAngleYaw;
@@ -549,21 +556,23 @@ void getAngles(bool useOffsets) {
       lastAnglePitch = anglePitch;
       lastAngleRoll = angleRoll;
       lastAngleYaw = angleYaw;
-          
-      if (useOffsets) {
-        anglePitch += offsetPitch;
-        angleRoll += offsetRoll;
-        //angleYaw += offsetYaw;
-      }
     
       #ifdef DEBUG_IMU
         Serial.print(F("Pitch: "));
         Serial.print(anglePitch);
-        Serial.print(F("\t\tRoll: "));
+        Serial.print(F("\tRoll: "));
         Serial.print(angleRoll);
-        Serial.print(F("\t\tYaw: "));
-        Serial.println(angleYaw);
+        Serial.print(F("\tYaw: "));
+        Serial.print(angleYaw);
+        Serial.print(F("\tLastPitch: "));
+        Serial.print(lastAnglePitch);
+        Serial.print(F("\tLastRoll: "));
+        Serial.print(angleRoll);
+        Serial.print(F("\tLastYaw: "));
+        Serial.println(lastAngleYaw);
       #endif
+
+      mpu.resetFIFO();
   }
 }
 
@@ -784,7 +793,7 @@ void loop() {
   #endif
 
   // Read angles from sensor
-  getAngles(false);
+  getAngles(true);
 
   // Calculate velocities of each motor depending of ControlMode
   calculateVelocities();

@@ -24,7 +24,7 @@ Controller::Controller() {
 
   #ifdef NORMAL_MODE
     // TRANSMITTER
-    sp.throttle = 0;
+    sp.throttle = MEDIUM_ANALOG_VALUE;
     sp.pitch = MEDIUM_ANALOG_VALUE;
     sp.roll = MEDIUM_ANALOG_VALUE;
     sp.yaw = MEDIUM_ANALOG_VALUE;
@@ -246,7 +246,7 @@ void Controller::showAngles() {
     lastShowAngles = millis();
     lcd->clear();
     lcd->setCursor(0, 0);
-    lcd->print("TH: ");
+    lcd->print("TH:");
     lcd->print(map(sp.throttle, THROTTLE_MIN, THROTTLE_MAX, MIN_VALUE_MOTOR, MAX_VALUE_MOTOR));
     lcd->print(" YW: ");
     lcd->print(map(sp.yaw, YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX));

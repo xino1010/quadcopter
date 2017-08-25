@@ -5,8 +5,8 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-//#define NORMAL_MODE
-#define CALIBRATION_MODE
+#define NORMAL_MODE
+//#define CALIBRATION_MODE
 
 #define DEBUG
 #ifdef DEBUG
@@ -65,7 +65,7 @@
 #define YAW_WMAX -135
 #define ZERO_VALUE_MOTOR 1000
 #define MIN_VALUE_MOTOR 1100
-#define MAX_VALUE_MOTOR 1500
+#define MAX_VALUE_MOTOR 1900
 #define THROTTLE_MIN 512
 #define THROTTLE_MAX 1023
 
