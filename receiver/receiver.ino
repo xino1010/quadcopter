@@ -121,8 +121,8 @@ double pidRollIn, pidRollOut, pidRollSetpoint = 0;
 PID pidRoll(&pidRollIn, &pidRollOut, &pidRollSetpoint, KP_ROLL, KI_ROLL, KD_ROLL, DIRECT);
 
 // Yaw
-#define YAW_PID_MIN -180 
-#define YAW_PID_MAX 180
+#define YAW_PID_MIN -45 
+#define YAW_PID_MAX 45
 float KP_YAW = 0;//1;
 float KI_YAW = 0;//0.015;
 float KD_YAW = 0;//1.2
@@ -153,6 +153,8 @@ uint8_t devStatus;      // return status after each device operation (0 = succes
 uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
+int16_t gx, gy, gz;
+float rad_to_deg = 180/3.141592654;
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
@@ -320,20 +322,6 @@ void updateRadioInfo() {
     }
     else {
       pidYawSetpoint = map(radioData[3], YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX);
-      /*
-      float rcYawIncrement = map(radioData[3], YAW_RMIN, YAW_RMAX, YAW_WMIN, YAW_WMAX);
-      if (angleYaw + rcYawIncrement > 180) {
-        float tmpYawAngle = 180 - (angleYaw + rcYawIncrement);
-        pidYawSetpoint = -180 - tmpYawAngle;
-      }
-      else if (angleYaw + rcYawIncrement < -180) {
-        float tmpYawAngle = -180 - (angleYaw + rcYawIncrement);
-        pidYawSetpoint = 180 - tmpYawAngle;
-      }
-      else {
-        pidYawSetpoint = angleYaw + rcYawIncrement;
-      }
-      */
     }
 
     // Power off motors
@@ -533,15 +521,16 @@ void getAngles(bool useOffsets) {
       mpu.dmpGetQuaternion(&q, fifoBuffer);
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+      mpu.getRotation(&gx, &gy, &gz);
 
       anglePitch = ypr[1] * 180 / M_PI; // Pitch
       angleRoll = ypr[2] * 180 / M_PI; // Roll
-      angleYaw = ypr[0] * 180 / M_PI; // Roll
+      angleYaw = gz / 131.0;
          
       if (useOffsets) {
         anglePitch += offsetPitch;
         angleRoll += offsetRoll;
-        //angleYaw += offsetYaw;
+        angleYaw += offsetYaw;
       }
 
       if (abs(anglePitch - lastAnglePitch) > 30) {
